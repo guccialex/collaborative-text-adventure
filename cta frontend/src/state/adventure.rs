@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
-use crate::api::fetch_adventure;
+use crate::api::adventure::fetch_adventure;
 use crate::domain::adventure::{AdventureGraph, AdventureNode};
 
 #[derive(Clone)]
@@ -22,10 +22,10 @@ pub struct AdventureState {
 impl AdventureState {
     pub fn new() -> Self {
         let state = Self {
-            graph: create_rw_signal(AdventureGraph::default()),
-            load_state: create_rw_signal(LoadState::Loading),
-            path: create_rw_signal(Vec::new()),
-            show_contribute: create_rw_signal(false),
+            graph: RwSignal::new(AdventureGraph::default()),
+            load_state: RwSignal::new(LoadState::Loading),
+            path: RwSignal::new(Vec::new()),
+            show_contribute: RwSignal::new(false),
         };
         state.reload();
         state
@@ -88,9 +88,18 @@ impl AdventureState {
         self.show_contribute.set(false);
     }
 
-    pub fn reset_path(&self) {
+    pub fn _reset_path(&self) {
         let root_path = self.graph.get().root_path();
         self.path.set(root_path);
         self.show_contribute.set(false);
     }
+}
+
+pub fn provide_adventure_state() {
+    let state = AdventureState::new();
+    provide_context(state);
+}
+
+pub fn use_adventure_state() -> AdventureState {
+    use_context::<AdventureState>().expect("AdventureState must be provided by an ancestor")
 }

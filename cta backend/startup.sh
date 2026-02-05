@@ -1,65 +1,56 @@
 #!/bin/bash
 set -e
 
-REPO_URL="https://github.com/YOUR_USERNAME/collaborative-text-adventure.git"
+# ============================================
+# CONFIGURE THIS: Set your domain name
+# ============================================
+DOMAIN="yourdomain.com"
+
+BINARY_URL="https://storage.googleapis.com/compiled_rust_for_text_adventure_server_to_run/cta-backend"
 APP_DIR="/opt/cta-backend"
-RUST_USER="cta"
 
-# Create user if doesn't exist
-if ! id "$RUST_USER" &>/dev/null; then
-    useradd -m -s /bin/bash "$RUST_USER"
+# Skip if already running
+systemctl is-active --quiet cta-backend && systemctl is-active --quiet caddy && exit 0
+
+# ----- Install Caddy -----
+if ! command -v caddy &> /dev/null; then
+    apt-get update
+    apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' | gpg --dearmor -o /usr/share/keyrings/caddy-stable-archive-keyring.gpg
+    curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/debian.deb.txt' > /etc/apt/sources.list.d/caddy-stable.list
+    apt-get update
+    apt-get install -y caddy
 fi
 
-# Install dependencies
-apt-get update
-apt-get install -y build-essential pkg-config libssl-dev git
+# ----- Configure Caddy -----
+cat > /etc/caddy/Caddyfile <<EOF
+$DOMAIN {
+    reverse_proxy localhost:8080
+}
+EOF
 
-# Install Rust for the user
-if [ ! -d "/home/$RUST_USER/.cargo" ]; then
-    su - "$RUST_USER" -c 'curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y'
-fi
+# ----- Setup Backend -----
+mkdir -p "$APP_DIR"
+curl -L -o "$APP_DIR/cta-backend" "$BINARY_URL"
+chmod +x "$APP_DIR/cta-backend"
 
-# Clone or pull repo
-if [ -d "$APP_DIR" ]; then
-    cd "$APP_DIR"
-    git pull
-else
-    git clone "$REPO_URL" "$APP_DIR"
-fi
-
-chown -R "$RUST_USER:$RUST_USER" "$APP_DIR"
-
-# Build
-cd "$APP_DIR/cta backend"
-su - "$RUST_USER" -c "cd '$APP_DIR/cta backend' && ~/.cargo/bin/cargo build --release"
-
-# Create .env if missing
-if [ ! -f ".env" ]; then
-    cp .env.example .env
-fi
-
-# Create systemd service
 cat > /etc/systemd/system/cta-backend.service <<EOF
 [Unit]
 Description=CTA Backend
 After=network.target
 
 [Service]
-Type=simple
-User=$RUST_USER
-WorkingDirectory=$APP_DIR/cta backend
-ExecStart=$APP_DIR/cta backend/target/release/cta-backend
+ExecStart=$APP_DIR/cta-backend
 Restart=always
-RestartSec=5
 Environment=RUST_LOG=info
+Environment=HOST=127.0.0.1
+Environment=PORT=8080
 
 [Install]
 WantedBy=multi-user.target
 EOF
 
-# Start service
+# ----- Start Services -----
 systemctl daemon-reload
-systemctl enable cta-backend
-systemctl restart cta-backend
-
-echo "CTA Backend is running!"
+systemctl enable --now cta-backend
+systemctl restart caddy

@@ -1,34 +1,7 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
-use gloo_net::http::Request;
-use serde::Deserialize;
 
-const API_BASE: &str = "http://localhost:8080";
-
-#[derive(Deserialize, Clone)]
-struct CounterResponse {
-    value: u64,
-}
-
-async fn fetch_counter() -> Result<u64, String> {
-    let resp = Request::get(&format!("{}/api/counter", API_BASE))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let data: CounterResponse = resp.json().await.map_err(|e| e.to_string())?;
-    Ok(data.value)
-}
-
-async fn increment_counter() -> Result<u64, String> {
-    let resp = Request::post(&format!("{}/api/counter/increment", API_BASE))
-        .send()
-        .await
-        .map_err(|e| e.to_string())?;
-
-    let data: CounterResponse = resp.json().await.map_err(|e| e.to_string())?;
-    Ok(data.value)
-}
+use crate::api::counter::{fetch_counter, increment_counter};
 
 #[component]
 pub fn ServerCounter() -> impl IntoView {

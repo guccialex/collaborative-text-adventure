@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
 use js_sys;
+use serde::{Deserialize, Serialize};
 
 /// The atomic building block of the adventure.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AdventureNode {
     pub id: String,
     pub parent_id: Option<String>,
@@ -23,7 +24,7 @@ impl AdventureNode {
 }
 
 /// Indexed adventure graph with fast lookups.
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Serialize, Deserialize)]
 pub struct AdventureGraph {
     nodes: HashMap<String, AdventureNode>,
     children_by_parent: HashMap<String, Vec<String>>,
