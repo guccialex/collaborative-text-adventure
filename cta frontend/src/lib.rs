@@ -10,6 +10,7 @@ mod pages;
 
 // Top-Level pages
 use crate::pages::home::Home;
+use crate::components::server_counter::ServerCounter;
 
 /// An app router which renders the homepage and handles 404's
 #[component]
@@ -26,6 +27,10 @@ pub fn App() -> impl IntoView {
         // injects metadata in the <head> of the page
         <Meta charset="UTF-8" />
         <Meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <header class="app-header">
+            <ServerCounter />
+        </header>
 
         <Router>
             <Routes fallback=|| view! { NotFound }>

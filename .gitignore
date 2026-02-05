@@ -1,2 +1,28 @@
-/target
-/dist
+# Rust/Cargo build artifacts
+target/
+*.lock
+Cargo.lock
+
+# Trunk build artifacts
+dist/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Node modules (if used)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# OS files
+Thumbs.db
