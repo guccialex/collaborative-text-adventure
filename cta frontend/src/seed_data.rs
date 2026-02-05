@@ -1,9 +1,8 @@
 //! Seed data for the adventure. Replace with API fetch in production.
 
-use std::collections::HashMap;
-use crate::api::AdventureChoiceUnit;
+use crate::domain::adventure::AdventureNode;
 
-pub fn get_seed_data() -> HashMap<String, AdventureChoiceUnit> {
+pub fn seed_nodes() -> Vec<AdventureNode> {
     [
         ("root", None, "Root", "This is a branching text adventure. Click on one of the options to read it and see its branching paths, or contribute one of your own at any point."),
         ("torch_passage", Some("root"), "Take the torch and explore the dark passage ahead", "You grab the torch from its sconce. The warmth is comforting against the chill. The passage ahead slopes downward, and you can hear the faint sound of dripping water echoing from somewhere deeper within."),
@@ -12,13 +11,11 @@ pub fn get_seed_data() -> HashMap<String, AdventureChoiceUnit> {
         ("deep_passage", Some("torch_passage"), "Continue deeper into the passage", "The passage opens into a vast underground cavern. Your torchlight barely reaches the ceiling high above. In the center, an ancient stone altar stands, covered in strange symbols that seem to glow faintly. Three corridors branch off in different directions."),
     ]
     .into_iter()
-    .map(|(id, parent, choice, story)| {
-        (id.into(), AdventureChoiceUnit {
-            id: id.into(),
-            parent_id: parent.map(Into::into),
-            choice_text: choice.into(),
-            story_text: story.into(),
-        })
+    .map(|(id, parent, choice, story)| AdventureNode {
+        id: id.into(),
+        parent_id: parent.map(Into::into),
+        choice_text: choice.into(),
+        story_text: story.into(),
     })
     .collect()
 }

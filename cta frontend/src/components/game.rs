@@ -1,17 +1,10 @@
-use leptos::ev;
 use leptos::callback::Callable;
+use leptos::ev;
 use leptos::prelude::*;
-use leptos::task::spawn_local;
 use leptos::web_sys;
 
-use crate::api::{fetch_adventure, Adventure, AdventureChoiceUnit};
-
-#[derive(Clone)]
-enum LoadState {
-    Loading,
-    Ready,
-    Error(String),
-}
+use crate::domain::adventure::AdventureNode;
+use crate::state::adventure::{AdventureState, LoadState};
 
 #[derive(Clone, Copy)]
 enum ContributeMode {
@@ -35,22 +28,6 @@ impl ContributeMode {
     }
 }
 
-fn root_path(adventure: &Adventure) -> Vec<String> {
-    adventure
-        .root()
-        .map(|root| vec![root.id.clone()])
-        .unwrap_or_default()
-}
-
-fn build_user_unit(parent_id: &str, choice_text: String, story_text: String) -> AdventureChoiceUnit {
-    AdventureChoiceUnit {
-        id: format!("user_{}", js_sys::Date::now() as u64),
-        parent_id: Some(parent_id.to_string()),
-        choice_text,
-        story_text,
-    }
-}
-
 fn scroll_to_segment(id: &str) {
     if let Some(doc) = web_sys::window().and_then(|w| w.document()) {
         if let Some(el) = doc.get_element_by_id(&format!("segment-{}", id)) {
@@ -61,45 +38,27 @@ fn scroll_to_segment(id: &str) {
 
 #[component]
 pub fn Game() -> impl IntoView {
-    let (adventure, set_adventure) = signal(Adventure::default());
-    let (path, set_path) = signal::<Vec<String>>(Vec::new());
-    let (load_state, set_load_state) = signal(LoadState::Loading);
-    let (show_contribute, set_show_contribute) = signal(false);
-    let (reload_token, set_reload_token) = signal(0u64);
-
-    // Load data on mount and when reloading
-    Effect::new(move |_| {
-        let _ = reload_token.get();
-        set_load_state.set(LoadState::Loading);
-        spawn_local(async move {
-            match fetch_adventure().await {
-                Ok(data) => {
-                    set_path.set(root_path(&data));
-                    set_adventure.set(data);
-                    set_load_state.set(LoadState::Ready);
-                }
-                Err(e) => {
-                    set_load_state.set(LoadState::Error(e));
-                }
-            }
-        })
-    });
+    let state = AdventureState::new();
+    let graph = state.graph();
+    let path = state.path();
+    let show_contribute = state.show_contribute();
+    let load_state = state.load_state();
 
     // All segments in path with their data
     let segments = create_memo(move |_| {
         let p = path.get();
-        let adv = adventure.get();
+        let adv = graph.get();
         p.iter()
             .enumerate()
-            .filter_map(|(i, id)| adv.get(id).map(|unit| (i, unit.clone())))
+            .filter_map(|(i, id)| adv.node(id).map(|unit| (i, unit.clone())))
             .collect::<Vec<_>>()
     });
 
     // Options for the last segment
-    let current_options = create_memo(move |_| -> Vec<AdventureChoiceUnit> {
+    let current_options = create_memo(move |_| -> Vec<AdventureNode> {
         path.get()
             .last()
-            .map(|id| adventure.get().children(id).into_iter().cloned().collect())
+            .map(|id| graph.get().children(id).into_iter().cloned().collect())
             .unwrap_or_default()
     });
 
@@ -112,20 +71,6 @@ pub fn Game() -> impl IntoView {
     });
     let is_ready = create_memo(move |_| matches!(load_state.get(), LoadState::Ready));
 
-    let on_choose = move |unit: AdventureChoiceUnit| {
-        set_path.update(|p| p.push(unit.id));
-        set_show_contribute.set(false);
-    };
-
-    let revert_to = move |index: usize| {
-        set_path.update(|p| p.truncate(index + 1));
-        set_show_contribute.set(false);
-    };
-
-    let restart = move |_: ev::MouseEvent| {
-        set_show_contribute.set(false);
-        set_reload_token.update(|value| *value = value.wrapping_add(1));
-    };
 
     view! {
         <div class="app-layout">
@@ -143,7 +88,7 @@ pub fn Game() -> impl IntoView {
                     <For
                         each={move || segments.get()}
                         key={|(i, unit)| (*i, unit.id.clone())}
-                        children={move |(i, unit): (usize, AdventureChoiceUnit)| {
+                        children={move |(i, unit): (usize, AdventureNode)| {
                             let id_for_scroll = unit.id.clone();
                             let is_current = move || i == path.get().len().saturating_sub(1);
                             view! {
@@ -162,7 +107,7 @@ pub fn Game() -> impl IntoView {
                                         <button
                                             class="revert-btn"
                                             title="Branch from here"
-                                            on:click=move |_| revert_to(i)
+                                            on:click=move |_| state.revert_to(i)
                                         >
                                             "↩"
                                         </button>
@@ -191,7 +136,7 @@ pub fn Game() -> impl IntoView {
                 <Show when=move || error_message.get().is_some()>
                     <div class="error">
                         <p>{move || error_message.get().unwrap_or_else(|| "Unknown error".to_string())}</p>
-                        <button class="restart-btn" on:click=restart>"Try Again"</button>
+                        <button class="restart-btn" on:click=move |_| state.reload()>"Try Again"</button>
                     </div>
                 </Show>
 
@@ -200,7 +145,7 @@ pub fn Game() -> impl IntoView {
                         <For
                             each={move || segments.get()}
                             key={|(i, unit)| (*i, unit.id.clone())}
-                            children={move |(i, unit): (usize, AdventureChoiceUnit)| {
+                            children={move |(i, unit): (usize, AdventureNode)| {
                                 let is_last = move || i == path.get().len().saturating_sub(1);
                                 let segment_id = format!("segment-{}", unit.id);
 
@@ -216,7 +161,7 @@ pub fn Game() -> impl IntoView {
                                                 <button
                                                     class="revert-btn-inline"
                                                     title="Branch from here"
-                                                    on:click=move |_| revert_to(i)
+                                                    on:click=move |_| state.revert_to(i)
                                                 >
                                                     "Branch from here"
                                                 </button>
@@ -248,25 +193,27 @@ pub fn Game() -> impl IntoView {
                                             {opts.into_iter().map(|opt| {
                                                 let o = opt.clone();
                                                 view! {
-                                                    <button class="option-btn" on:click=move |_| on_choose(o.clone())>
+                                                    <button class="option-btn" on:click=move |_| state.choose(&o)>
                                                         {opt.choice_text}
                                                     </button>
                                                 }
                                             }).collect::<Vec<_>>()}
                                             <button
                                                 class="option-btn add-option-btn"
-                                                on:click=move |_| set_show_contribute.update(|v| *v = !*v)
+                                                on:click=move |_| state.toggle_contribute()
                                             >
                                                 {move || if show_contribute.get() { "Cancel" } else { "Add your own option" }}
                                             </button>
                                         </div>
 
                                         <Show when=move || show_contribute.get()>
-                                            <ContributeForm
-                                                parent_id=parent_id.clone()
-                                                mode=ContributeMode::Branch
-                                                on_cancel=Callback::new(move |_| set_show_contribute.set(false))
-                                            />
+                                            <div>
+                                                <ContributeForm
+                                                    parent_id=parent_id.clone()
+                                                    mode=ContributeMode::Branch
+                                                    on_cancel=Callback::new(move |_| state.close_contribute())
+                                                />
+                                            </div>
                                         </Show>
                                     </div>
                                 }.into_any()
@@ -295,11 +242,7 @@ fn ContributeForm(
         ev.prevent_default();
         set_submitting.set(true);
 
-        let new_unit = build_user_unit(
-            &parent_id,
-            choice_text.get(),
-            story_text.get(),
-        );
+        let new_unit = AdventureNode::user(&parent_id, choice_text.get(), story_text.get());
 
         log::info!("Would submit: {:?}", new_unit);
         set_submitting.set(false);

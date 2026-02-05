@@ -8,6 +8,14 @@ use actix_web::{
 };
 use serde::Serialize;
 
+fn get_env(key: &str, default: &str) -> String {
+    std::env::var(key).unwrap_or_else(|_| default.to_string())
+}
+
+fn cors_permissive() -> Cors {
+    Cors::permissive()
+}
+
 // Global counter stored in memory - persists across frontend restarts
 static COUNTER: AtomicU64 = AtomicU64::new(0);
 
@@ -49,6 +57,8 @@ async fn increment_counter() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> io::Result<()> {
+    dotenv::dotenv().ok();
+
     tracing_subscriber::fmt()
         .with_env_filter(
             tracing_subscriber::EnvFilter::from_default_env()
@@ -56,20 +66,15 @@ async fn main() -> io::Result<()> {
         )
         .init();
 
-    tracing::info!("Starting HTTP server at http://localhost:8080");
+    let host = get_env("HOST", "0.0.0.0");
+    let port = get_env("PORT", "8080").parse::<u16>().unwrap_or(8080);
+
+    tracing::info!("Starting HTTP server at http://{}:{}", host, port);
 
     HttpServer::new(move || {
-        // CORS configuration to allow frontend on port 8000
-        let cors = Cors::default()
-            .allowed_origin("http://localhost:8000")
-            .allowed_origin("http://127.0.0.1:8000")
-            .allowed_methods(vec!["GET", "POST"])
-            .allowed_headers(vec!["Content-Type"])
-            .max_age(3600);
-
         App::new()
-            // CORS must be registered before other middleware
-            .wrap(cors)
+            // Allow all origins
+            .wrap(cors_permissive())
             // enable automatic response compression
             .wrap(middleware::Compress::default())
             // enable logger
@@ -84,7 +89,7 @@ async fn main() -> io::Result<()> {
                 HttpResponse::NotFound().body("Not Found")
             }))
     })
-    .bind(("127.0.0.1", 8080))?
+    .bind((host.as_str(), port))?
     .workers(2)
     .run()
     .await
