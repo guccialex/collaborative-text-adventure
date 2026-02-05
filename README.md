@@ -19,15 +19,16 @@ A web-based collaborative text adventure game built entirely in Rust. Players ex
 ```
 ├── cta frontend/          # Leptos WASM frontend
 │   ├── src/
-│   │   ├── components/    # UI components
+│   │   ├── components/    # UI components (game/, server_counter)
 │   │   ├── pages/         # Page views
 │   │   ├── domain/        # Game domain logic
 │   │   ├── state/         # State management
-│   │   └── api.rs         # Backend API client
+│   │   ├── api/           # Backend API client modules
+│   │   └── config.rs      # Centralized configuration
 │   └── Cargo.toml
 ├── cta backend/           # Actix-web backend
 │   ├── src/main.rs
-│   ├── startup.sh         # GCP VM startup script
+│   ├── startup.sh         # GCP VM startup script (installs Caddy, configures HTTPS)
 │   └── Cargo.toml
 └── build-and-upload.sh    # Deploy backend to VM
 ```
@@ -64,26 +65,13 @@ trunk build --release
 
 ## Backend Deployment (GCP)
 
-### Overview
+### Prerequisites
 
-The backend runs on a Google Compute Engine VM. There are two deployment methods:
+- A GCP project with Compute Engine enabled
+- `gcloud` CLI installed and authenticated
+- A GCS bucket with the compiled backend binary (see "First-time GCS setup" below)
 
-1. **GCS Bucket method**: Build locally, upload binary to a public GCS bucket, VM pulls it on startup
-2. **Direct SCP method**: Build locally, upload directly to VM via SSH
-
-### Method 1: GCS Bucket
-
-This method uses a startup script that automatically downloads and runs the binary when the VM boots.
-
-#### Step 1: Build the backend
-
-```bash
-cd "cta backend"
-cargo build --release
-# Binary at: target/release/cta-backend
-```
-
-#### Step 2: Upload to GCS
+### First-time GCS setup
 
 ```bash
 # Create a bucket (one time)
@@ -91,109 +79,80 @@ gsutil mb gs://your-bucket-name
 
 # Make it publicly readable (one time)
 gsutil iam ch allUsers:objectViewer gs://your-bucket-name
+```
 
-# Upload the binary
+Then update the `BINARY_URL` in `cta backend/startup.sh` to point to your bucket.
+
+### Build and upload the backend binary
+
+```bash
+cd "cta backend"
+cargo build --release
 gsutil cp target/release/cta-backend gs://your-bucket-name/cta-backend
 ```
 
-#### Step 3: Update the startup script
-
-Edit `cta backend/startup.sh` and set your bucket URL:
-
-```bash
-BINARY_URL="https://storage.googleapis.com/your-bucket-name/cta-backend"
-```
-
-#### Step 4: Create the GCP VM
+### Create the GCP VM
 
 1. Go to GCP Console → Compute Engine → VM Instances → Create Instance
 2. Choose a machine type (e2-micro works for small loads)
-3. Under "Firewall", check "Allow HTTP traffic"
+3. Under "Firewall", check **both** "Allow HTTP traffic" and "Allow HTTPS traffic"
 4. Expand "Advanced options" → "Management"
-5. Paste the contents of `startup.sh` into the "Startup script" field
+5. Paste the contents of `cta backend/startup.sh` into the "Startup script" field
 6. Create the instance
 
-The VM will automatically download and start the backend on boot.
+The startup script automatically:
+- Detects the VM's public IP
+- Installs Caddy (reverse proxy with automatic HTTPS)
+- Configures a `<PUBLIC_IP>.nip.io` domain (no domain purchase needed)
+- Downloads the backend binary from GCS
+- Creates a systemd service for the backend
+- Starts everything up with HTTPS via Let's Encrypt
 
-### Method 2: Direct SCP (Quick iteration)
+Your app will be live at `https://<VM_IP>.nip.io` within a minute or two.
 
-For faster iteration during development:
+### Updating the backend (quick iteration)
 
 ```bash
 ./build-and-upload.sh <VM_IP>
 ```
 
-This builds locally and uploads directly to the VM via SSH.
+This builds locally and SCPs the binary directly to the VM, then restarts the service.
 
 ### SSH into the VM
 
 ```bash
 gcloud compute ssh <instance-name> --zone <zone>
-# or
-ssh <username>@<vm-ip>
 ```
 
-### Check backend status
+### Check status
 
 ```bash
-# Service status
+# Backend service
 sudo systemctl status cta-backend
-
-# Live logs
 sudo journalctl -u cta-backend -f
 
+# Caddy (HTTPS reverse proxy)
+sudo systemctl status caddy
+sudo journalctl -u caddy --no-pager -n 50
+
 # Test locally on VM
-curl http://localhost:8080
 curl http://localhost:8080/health
 ```
 
-### How the startup script works
+### How it works
 
-The `startup.sh` script:
-
-1. Checks if the service is already running (skips setup if so)
-2. Downloads the binary from GCS
-3. Sets up iptables to redirect port 80 → 8080 (so the app doesn't need root)
-4. Creates a systemd service
-5. Starts the service
-
-The app runs on port 8080, but external requests to port 80 are automatically redirected.
-
-### Updating the backend
-
-After making changes:
-
-1. Rebuild: `cargo build --release`
-2. Upload new binary to GCS: `gsutil cp target/release/cta-backend gs://your-bucket-name/cta-backend`
-3. On the VM, restart the service:
-   ```bash
-   sudo curl -L -o /opt/cta-backend/cta-backend "https://storage.googleapis.com/your-bucket-name/cta-backend"
-   sudo chmod +x /opt/cta-backend/cta-backend
-   sudo systemctl restart cta-backend
-   ```
-
-Or just use the quick method:
-```bash
-./build-and-upload.sh <VM_IP>
+```
+Internet                    GCP VM
+────────────────────────────────────────────
+https://<IP>.nip.io ──► Caddy (:443)
+                            │ reverse_proxy
+                            ▼
+                          cta-backend (:8080)
 ```
 
-## HTTPS Setup
-
-For HTTPS, you need a domain name. The easiest approach is Caddy:
-
-```bash
-# On the VM
-sudo apt install -y caddy
-
-# Configure (replace yourdomain.com)
-echo 'yourdomain.com {
-    reverse_proxy localhost:8080
-}' | sudo tee /etc/caddy/Caddyfile
-
-sudo systemctl restart caddy
-```
-
-Caddy automatically obtains and renews SSL certificates from Let's Encrypt.
+- **nip.io** provides free wildcard DNS: `1.2.3.4.nip.io` resolves to `1.2.3.4`
+- **Caddy** handles TLS certificates automatically via Let's Encrypt
+- **Backend** only listens on localhost:8080, Caddy proxies external traffic to it
 
 ## API Endpoints
 
