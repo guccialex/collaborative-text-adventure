@@ -350,6 +350,10 @@ img {
 }
 
 .option-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   background: rgba(16, 22, 33, 0.9);
   border: 1px solid rgba(242, 197, 107, 0.2);
   color: var(--text);
@@ -358,6 +362,21 @@ img {
   padding: 0.95rem 1.1rem;
   border-radius: var(--radius-sm);
   transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+
+.option-text {
+  flex: 1;
+}
+
+.option-count {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: rgba(242, 197, 107, 0.08);
+  border: 1px solid rgba(242, 197, 107, 0.15);
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  white-space: nowrap;
 }
 
 .option-btn:hover {
@@ -438,12 +457,50 @@ img {
   transform: translateY(-1px);
 }
 
+.back-to-root-btn {
+  display: inline-block;
+  border: 1px solid rgba(133, 208, 255, 0.3);
+  color: var(--accent-2);
+  font-size: 0.85rem;
+  padding: 0.4rem 0.9rem;
+  border-radius: 999px;
+  margin-bottom: 1.25rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.back-to-root-btn:hover {
+  border-color: rgba(133, 208, 255, 0.65);
+  background: rgba(133, 208, 255, 0.08);
+}
+
+.intro-text {
+  padding: 1.5rem 1.75rem;
+  border-radius: var(--radius-md);
+  background: rgba(21, 27, 38, 0.6);
+  border: 1px solid rgba(133, 208, 255, 0.15);
+  margin-bottom: 1.5rem;
+}
+
+.intro-text p {
+  color: var(--text-muted);
+  font-size: 1rem;
+  line-height: 1.75;
+}
+
 .contribute-section {
   margin-top: 1rem;
   padding: 1.75rem;
   border-radius: var(--radius-md);
   background: rgba(16, 22, 33, 0.9);
   border: 1px solid rgba(242, 197, 107, 0.2);
+}
+
+.contribute-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
 }
 
 .contribute-section h2 {
@@ -455,7 +512,23 @@ img {
 .contribute-section .hint {
   color: var(--text-muted);
   font-size: 0.9rem;
-  margin-bottom: 1.25rem;
+}
+
+.llm-prompt-btn {
+  white-space: nowrap;
+  border: 1px solid rgba(133, 208, 255, 0.35);
+  color: var(--accent-2);
+  font-size: 0.8rem;
+  padding: 0.4rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(16, 22, 33, 0.6);
+  transition: border-color 0.2s, color 0.2s, background 0.2s;
+  flex-shrink: 0;
+}
+
+.llm-prompt-btn:hover {
+  border-color: rgba(133, 208, 255, 0.7);
+  background: rgba(133, 208, 255, 0.08);
 }
 
 .contribute-form {

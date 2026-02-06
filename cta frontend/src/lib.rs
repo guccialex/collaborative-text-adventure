@@ -24,7 +24,7 @@ pub fn App() -> impl IntoView {
         <Html attr:lang="en" attr:dir="ltr" attr:data-theme="dark" />
 
         // sets the document title
-        <Title text="The Endless Tale - Collaborative Text Adventure" />
+        <Title text="Collaborative Text Adventure" />
 
         // injects metadata in the <head> of the page
         <Meta charset="UTF-8" />

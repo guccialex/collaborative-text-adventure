@@ -17,7 +17,6 @@ pub fn Sidebar(
             <div class="sidebar-brand">
                 <div class="brand-mark">"∞"</div>
                 <div>
-                    <p class="brand-title">"Endless Tale"</p>
                     <p class="brand-subtitle">"Collaborative Adventure"</p>
                 </div>
             </div>

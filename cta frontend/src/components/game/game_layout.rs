@@ -24,12 +24,21 @@ pub fn Game() -> impl IntoView {
             .collect::<Vec<_>>()
     });
 
-    // Options for the last segment
+    let counts = state.descendant_counts();
+
+    // Options for the last segment (or roots if path is empty), sorted by descendant count
     let current_options = Memo::new(move |_| -> Vec<AdventureNode> {
-        path.get()
-            .last()
-            .map(|id| graph.get().children(id).into_iter().cloned().collect())
-            .unwrap_or_default()
+        let mut opts: Vec<AdventureNode> = match path.get().last() {
+            Some(id) => graph.get().children(id).into_iter().cloned().collect(),
+            None => graph.get().roots().into_iter().cloned().collect(),
+        };
+        let c = counts.get();
+        opts.sort_by(|a, b| {
+            let ca = c.get(&a.id).copied().unwrap_or(0);
+            let cb = c.get(&b.id).copied().unwrap_or(0);
+            cb.cmp(&ca)
+        });
+        opts
     });
 
     let current_parent_id = Memo::new(move |_| path.get().last().cloned());

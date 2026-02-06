@@ -15,9 +15,27 @@ pub fn StoryScroll(
     let state = use_adventure_state();
     let path = state.path();
     let show_contribute = state.show_contribute();
+    let counts = state.descendant_counts();
+
+    let at_root = Memo::new(move |_| path.get().is_empty());
 
     view! {
         <div class="story-scroll">
+            <Show when=move || at_root.get()>
+                <div class="intro-text">
+                    <p>"This is a branching text adventure. Choose an opening below to begin reading, or start your own story."</p>
+                </div>
+            </Show>
+
+            <Show when=move || !at_root.get()>
+                <button
+                    class="back-to-root-btn"
+                    on:click=move |_| state.reset_path()
+                >
+                    "Back to root"
+                </button>
+            </Show>
+
             <For
                 each={move || segments.get()}
                 key={|(i, unit)| (*i, unit.id.clone())}
@@ -53,24 +71,53 @@ pub fn StoryScroll(
             {move || {
                 let opts = current_options.get();
                 let parent_id = current_parent_id.get().unwrap_or_default();
+                let is_root = at_root.get();
+                let contribute_mode = if is_root {
+                    ContributeMode::NewStory
+                } else {
+                    ContributeMode::DeadEnd
+                };
 
                 if opts.is_empty() {
                     // No options - show contribute form directly
                     view! {
                         <div id="story-end">
-                            <ContributeForm parent_id=parent_id mode=ContributeMode::DeadEnd />
+                            <ContributeForm parent_id=parent_id mode=contribute_mode />
                         </div>
                     }.into_any()
                 } else {
+                    let branch_mode = if is_root {
+                        ContributeMode::NewStory
+                    } else {
+                        ContributeMode::Branch
+                    };
+
                     // Has options - show them with "add your own" button
                     view! {
                         <div id="story-end">
                             <div class="options">
                                 {opts.into_iter().map(|opt| {
                                     let o = opt.clone();
+                                    let opt_id = opt.id.clone();
+                                    let count_label = move || {
+                                        let n = counts.get().get(&opt_id).copied().unwrap_or(0);
+                                        if n == 0 {
+                                            String::new()
+                                        } else {
+                                            format!("{}", n)
+                                        }
+                                    };
                                     view! {
                                         <button class="option-btn" on:click=move |_| state.choose(&o)>
-                                            {opt.choice_text}
+                                            <span class="option-text">{opt.choice_text}</span>
+                                            {move || {
+                                                let label = count_label();
+                                                if label.is_empty() {
+                                                    None
+                                                } else {
+                                                    Some(view! { <span class="option-count">{label}</span> })
+                                                }
+                                            }}
                                         </button>
                                     }
                                 }).collect::<Vec<_>>()}
@@ -78,7 +125,7 @@ pub fn StoryScroll(
                                     class="option-btn add-option-btn"
                                     on:click=move |_| state.toggle_contribute()
                                 >
-                                    {move || if show_contribute.get() { "Cancel" } else { "Add your own option" }}
+                                    {move || if show_contribute.get() { "Cancel" } else if is_root { "Start a new story" } else { "Add your own option" }}
                                 </button>
                             </div>
 
@@ -86,7 +133,7 @@ pub fn StoryScroll(
                                 <div>
                                     <ContributeForm
                                         parent_id=parent_id.clone()
-                                        mode=ContributeMode::Branch
+                                        mode=branch_mode
                                         on_cancel=Callback::new(move |_| state.close_contribute())
                                     />
                                 </div>

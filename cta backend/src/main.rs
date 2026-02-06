@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fs::{self, OpenOptions};
 use std::io::{self, BufRead, Write};
 use std::path::Path;
@@ -36,34 +37,60 @@ struct AppState {
 fn seed_nodes() -> Vec<AdventureNode> {
     vec![
         AdventureNode {
-            id: "root".into(),
+            id: "bank_heist".into(),
             parent_id: None,
-            choice_text: "Root".into(),
-            story_text: "This is a branching text adventure. Click on one of the options to read it and see its branching paths, or contribute one of your own at any point.".into(),
+            choice_text: "The guy who was just trying to deposit a check".into(),
+            story_text: "The line at First National was seventeen people deep, which was about sixteen \
+more than Gary had patience for on a Friday afternoon. He'd been staring at the \
+back of the same bald head for twenty minutes, mentally composing a strongly \
+worded Yelp review, when the front doors slammed open and three figures in \
+rubber Halloween masks walked in carrying duffel bags and shotguns.\n\n\
+\"EVERYBODY ON THE GROUND! NOW!\"\n\n\
+Gary watched the bald head in front of him drop out of sight. Then the old lady \
+behind him. Then the college kid with the airpods who still hadn't noticed. A \
+shotgun blast into the ceiling fixed that. Plaster rained down like snow.\n\n\
+Gary looked at the deposit slip in his hand — his rent check, already three days \
+late — then at the guy in the Richard Nixon mask who was now zip-tying the \
+security guard to a potted plant. He looked at the clock: 4:47 PM. The bank \
+closed at 5.\n\n\
+He got on the ground, but he kept the deposit slip. He was NOT coming back on \
+Monday.".into(),
         },
         AdventureNode {
-            id: "torch_passage".into(),
-            parent_id: Some("root".into()),
-            choice_text: "Take the torch and explore the dark passage ahead".into(),
-            story_text: "You grab the torch from its sconce. The warmth is comforting against the chill. The passage ahead slopes downward, and you can hear the faint sound of dripping water echoing from somewhere deeper within.".into(),
-        },
-        AdventureNode {
-            id: "search_chamber".into(),
-            parent_id: Some("root".into()),
-            choice_text: "Search the chamber for clues about your identity".into(),
-            story_text: "You run your hands along the rough stone walls, searching for anything that might explain your situation. In a corner, your fingers brush against something metallic - a small iron key, covered in cobwebs. Near it lies a torn piece of parchment with faded writing.".into(),
-        },
-        AdventureNode {
-            id: "call_out".into(),
-            parent_id: Some("root".into()),
-            choice_text: "Call out into the darkness".into(),
-            story_text: "\"Hello?\" your voice echoes through the chamber, bouncing off unseen walls in the darkness. For a moment, silence. Then... footsteps. Slow, deliberate footsteps approaching from the passage ahead. A raspy voice calls back: \"Another one awakens...\"".into(),
-        },
-        AdventureNode {
-            id: "deep_passage".into(),
-            parent_id: Some("torch_passage".into()),
-            choice_text: "Continue deeper into the passage".into(),
-            story_text: "The passage opens into a vast underground cavern. Your torchlight barely reaches the ceiling high above. In the center, an ancient stone altar stands, covered in strange symbols that seem to glow faintly. Three corridors branch off in different directions.".into(),
+            id: "cursed_mario".into(),
+            parent_id: None,
+            choice_text: "Super Mario 128: The Lost Cartridge".into(),
+            story_text: "OK so this is a TRUE story and before you say anything, YES I know how it \
+sounds, but I need to get this out there because people need to KNOW.\n\n\
+It was summer 2007 and I was at my Uncle Rick's house because my mom said I \
+had to \"go outside\" even though she also said I couldn't go to Tyler's house \
+because Tyler's older brother had just gotten a Wii and she said I was \"obsessed.\" \
+Uncle Rick's garage was full of his old stuff from when he used to work at \
+(I'm not going to say the company name for legal reasons but it rhymes with \
+Fintendo). I was digging through a box of cables when I found it: a cartridge, \
+jet black, no label, just the word \"MARIO\" scratched into the plastic with \
+something sharp. Probably a knife. Or a fingernail.\n\n\
+I shouldn't have played it. I KNOW that now. But I was eleven and bored and \
+Uncle Rick was asleep in his recliner with the TV on, so I grabbed his old NES \
+from the shelf, blew into the cartridge (you had to do that back then, kids), \
+and plugged it in.\n\n\
+The title screen looked almost normal. Almost. It said \"SUPER MARIO 128\" in \
+red letters, but the letters were... dripping? And the background wasn't the \
+usual blue sky. It was just black. Mario was standing there on the title screen \
+like usual, but he wasn't moving. He was just staring. AT ME. His eyes were \
+photorealistic, which was weird because the rest of him was regular pixel Mario. \
+The music was the normal theme but slowed down and reversed, and I swear — I \
+SWEAR — every few seconds there was a sound like breathing.\n\n\
+I pressed Start.\n\n\
+World 1-1 loaded, except the ground was red and the sky was that same black. \
+There were no goombas. No koopas. No coins. Just Mario, running right, in \
+total silence. I played for maybe ten minutes, just running through empty \
+levels that got more and more wrong — pipes that led nowhere, blocks that \
+bled when you hit them, a flagpole at the end of 1-4 with something hanging \
+from it that I don't want to describe.\n\n\
+That's when I fell asleep. I don't remember closing my eyes. One second I was \
+sitting cross-legged on Uncle Rick's carpet, and the next I was standing on \
+red ground under a black sky, and my shoes were made of pixels.".into(),
         },
     ]
 }
@@ -115,10 +142,50 @@ fn append_node_to_file(node: &AdventureNode) {
     }
 }
 
+fn compute_descendant_counts(nodes: &[AdventureNode]) -> HashMap<String, u64> {
+    let mut children_map: HashMap<&str, Vec<&str>> = HashMap::new();
+    for node in nodes {
+        if let Some(ref parent_id) = node.parent_id {
+            children_map
+                .entry(parent_id.as_str())
+                .or_default()
+                .push(&node.id);
+        }
+    }
+
+    fn count(
+        id: &str,
+        children_map: &HashMap<&str, Vec<&str>>,
+        cache: &mut HashMap<String, u64>,
+    ) -> u64 {
+        if let Some(&cached) = cache.get(id) {
+            return cached;
+        }
+        let total = match children_map.get(id) {
+            Some(child_ids) => child_ids
+                .iter()
+                .map(|cid| 1 + count(cid, children_map, cache))
+                .sum(),
+            None => 0,
+        };
+        cache.insert(id.to_string(), total);
+        total
+    }
+
+    let mut cache = HashMap::new();
+    for node in nodes {
+        count(&node.id, &children_map, &mut cache);
+    }
+    cache
+}
+
 fn handle_message(msg: ServerMessage, state: &mut AppState) -> ServerMessage {
     match msg {
         ServerMessage::RequestAdventureNodes => {
             ServerMessage::ReturnAdventureNodes(state.nodes.clone())
+        }
+        ServerMessage::RequestDescendantCounts => {
+            ServerMessage::ReturnDescendantCounts(compute_descendant_counts(&state.nodes))
         }
         ServerMessage::SubmitAdventureNode(node) => {
             tracing::info!("Received new adventure node: {:?}", node.id);

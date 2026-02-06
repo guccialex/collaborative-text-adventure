@@ -174,3 +174,15 @@ The backend reads these environment variables:
 | `HOST` | `0.0.0.0` | Bind address |
 | `PORT` | `8080` | Listen port |
 | `RUST_LOG` | `info` | Log level |
+
+## Future: Newgrounds API Integration
+
+Adventure nodes could store the Newgrounds user ID of their creator, attributing each contribution to the player who wrote it. This would require integrating with the Newgrounds.io API.
+
+Newgrounds.io is a REST API at `https://newgrounds.io/gateway/v3` — you POST JSON with a component name and parameters, and get JSON back. The JS libraries are just wrappers around this. Since the frontend is Rust/WASM, there are two ways to integrate:
+
+1. **From the frontend via `wasm-bindgen`**: Load a small JS library (e.g. [KilledByAPixel/newgrounds](https://github.com/KilledByAPixel/newgrounds)) in `index.html` and call it from Rust through `#[wasm_bindgen]` extern bindings. The JS library handles the login popup and session encryption. The frontend would authenticate the user, get their session/user info, and include their Newgrounds user ID when submitting an adventure node.
+
+2. **From the backend via direct REST calls**: The backend calls `https://newgrounds.io/gateway/v3` directly using `reqwest` or similar. The frontend passes a Newgrounds session token to the backend, which validates it server-side before accepting a node submission. This is more secure since the backend can verify the user identity rather than trusting the frontend.
+
+Either way, the `AdventureNode` struct in the shared crate would gain a `creator_id: Option<String>` field, and the backend would store who created each node. This also opens the door to Newgrounds medals (e.g. "first contribution") and scoreboards (e.g. most contributions).

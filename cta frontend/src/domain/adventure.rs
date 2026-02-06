@@ -9,7 +9,7 @@ pub use shared::AdventureNode;
 pub struct AdventureGraph {
     nodes: HashMap<String, AdventureNode>,
     children_by_parent: HashMap<String, Vec<String>>,
-    root_id: Option<String>,
+    root_ids: Vec<String>,
 }
 
 impl AdventureGraph {
@@ -24,7 +24,7 @@ impl AdventureGraph {
                     .or_default()
                     .push(node_id.clone());
             } else {
-                graph.root_id = Some(node_id.clone());
+                graph.root_ids.push(node_id.clone());
             }
             graph.nodes.insert(node_id, node);
         }
@@ -35,14 +35,11 @@ impl AdventureGraph {
         self.nodes.get(id)
     }
 
-    pub fn root_id(&self) -> Option<&str> {
-        self.root_id.as_deref()
-    }
-
-    pub fn root_path(&self) -> Vec<String> {
-        self.root_id()
-            .map(|id| vec![id.to_string()])
-            .unwrap_or_default()
+    pub fn roots(&self) -> Vec<&AdventureNode> {
+        self.root_ids
+            .iter()
+            .filter_map(|id| self.nodes.get(id))
+            .collect()
     }
 
     pub fn children(&self, parent_id: &str) -> Vec<&AdventureNode> {

@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
-use crate::api::adventure::{fetch_adventure, submit_node};
+use crate::api::adventure::{fetch_adventure, fetch_descendant_counts, submit_node};
 use crate::domain::adventure::{AdventureGraph, AdventureNode};
 
 #[derive(Clone)]
@@ -14,6 +16,7 @@ pub enum LoadState {
 #[derive(Clone, Copy)]
 pub struct AdventureState {
     graph: RwSignal<AdventureGraph>,
+    descendant_counts: RwSignal<HashMap<String, u64>>,
     load_state: RwSignal<LoadState>,
     path: RwSignal<Vec<String>>,
     show_contribute: RwSignal<bool>,
@@ -23,6 +26,7 @@ impl AdventureState {
     pub fn new() -> Self {
         let state = Self {
             graph: RwSignal::new(AdventureGraph::default()),
+            descendant_counts: RwSignal::new(HashMap::new()),
             load_state: RwSignal::new(LoadState::Loading),
             path: RwSignal::new(Vec::new()),
             show_contribute: RwSignal::new(false),
@@ -33,6 +37,10 @@ impl AdventureState {
 
     pub fn graph(&self) -> RwSignal<AdventureGraph> {
         self.graph
+    }
+
+    pub fn descendant_counts(&self) -> RwSignal<HashMap<String, u64>> {
+        self.descendant_counts
     }
 
     pub fn load_state(&self) -> RwSignal<LoadState> {
@@ -49,6 +57,7 @@ impl AdventureState {
 
     pub fn reload(&self) {
         let graph = self.graph;
+        let counts = self.descendant_counts;
         let load_state = self.load_state;
         let path = self.path;
         let show_contribute = self.show_contribute;
@@ -57,10 +66,13 @@ impl AdventureState {
         spawn_local(async move {
             match fetch_adventure().await {
                 Ok(data) => {
-                    let root_path = data.root_path();
                     graph.set(data);
-                    path.set(root_path);
+                    path.set(Vec::new());
                     show_contribute.set(false);
+                    // Fetch descendant counts in parallel-ish (after graph)
+                    if let Ok(c) = fetch_descendant_counts().await {
+                        counts.set(c);
+                    }
                     load_state.set(LoadState::Ready);
                 }
                 Err(error) => {
@@ -90,6 +102,7 @@ impl AdventureState {
 
     pub fn add_node(&self, node: AdventureNode) {
         let graph = self.graph;
+        let counts = self.descendant_counts;
         let load_state = self.load_state;
         let path = self.path;
         let show_contribute = self.show_contribute;
@@ -103,6 +116,9 @@ impl AdventureState {
                             graph.set(data);
                             path.update(|p| p.push(new_node_id));
                             show_contribute.set(false);
+                            if let Ok(c) = fetch_descendant_counts().await {
+                                counts.set(c);
+                            }
                             load_state.set(LoadState::Ready);
                         }
                         Err(error) => {
@@ -118,9 +134,9 @@ impl AdventureState {
         });
     }
 
-    pub fn _reset_path(&self) {
-        let root_path = self.graph.get().root_path();
-        self.path.set(root_path);
+    #[allow(dead_code)]
+    pub fn reset_path(&self) {
+        self.path.set(Vec::new());
         self.show_contribute.set(false);
     }
 }
