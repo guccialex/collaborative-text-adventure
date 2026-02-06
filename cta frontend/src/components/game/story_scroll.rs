@@ -54,10 +54,10 @@ pub fn StoryScroll(
                                 <Show when={move || !is_last()}>
                                     <button
                                         class="revert-btn-inline"
-                                        title="Branch from here"
+                                        title="Return here"
                                         on:click=move |_| state.revert_to(i)
                                     >
-                                        "Branch from here"
+                                        "Return here"
                                     </button>
                                 </Show>
                             </div>

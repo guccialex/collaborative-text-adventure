@@ -43,7 +43,7 @@ pub fn Sidebar(
                                 <Show when={move || !is_current()}>
                                     <button
                                         class="revert-btn"
-                                        title="Branch from here"
+                                        title="Return here"
                                         on:click=move |_| state.revert_to(i)
                                     >
                                         "↩"
