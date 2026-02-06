@@ -8,6 +8,8 @@
   --text-muted: #888;
   --accent: #6fadf0;
   --accent-muted: rgba(111, 173, 240, 0.15);
+  --accent-warm: #e8a84c;
+  --accent-warm-muted: rgba(232, 168, 76, 0.10);
   --border: #333;
   --content-max: 820px;
 }
@@ -53,11 +55,15 @@ img {
   display: block;
 }
 
+// ── Layout ──────────────────────────────────────────────
+
 .app-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
   min-height: 100vh;
 }
+
+// ── Sidebar ─────────────────────────────────────────────
 
 .sidebar {
   background: #1e1e1e;
@@ -129,7 +135,7 @@ img {
 }
 
 .path-item-row:has(.path-item.active) {
-  background: var(--surface-2);
+  background: var(--accent-muted);
 }
 
 .path-item {
@@ -159,6 +165,7 @@ img {
 
 .path-item.active {
   color: var(--accent);
+  font-weight: 500;
 }
 
 .path-item.active::before {
@@ -184,10 +191,14 @@ img {
   color: var(--text);
 }
 
+// ── Main content ────────────────────────────────────────
+
 .main-content {
   padding: 2rem 3rem 3rem;
   overflow-y: auto;
 }
+
+// ── Story header ────────────────────────────────────────
 
 .story-header {
   max-width: var(--content-max);
@@ -214,6 +225,8 @@ img {
   max-width: 60ch;
 }
 
+// ── Story scroll ────────────────────────────────────────
+
 .story-scroll {
   max-width: var(--content-max);
   margin: 0 auto;
@@ -223,21 +236,25 @@ img {
   counter-reset: segment;
 }
 
+// ── Story segments ──────────────────────────────────────
+
 .story-segment {
-  padding: 1.25rem;
+  padding: 1.25rem 1.25rem 1.25rem 1.5rem;
   border-radius: 3px;
   background: var(--surface);
-  border: 1px solid var(--border);
+  border: 1px solid transparent;
+  border-left: 3px solid #555;
   position: relative;
   counter-increment: segment;
+  transition: opacity 0.2s, border-color 0.2s;
 }
 
 .story-segment::before {
   content: "#" counter(segment);
   position: absolute;
-  top: -0.6rem;
+  top: -0.55rem;
   left: 0.75rem;
-  padding: 0 0.4rem;
+  padding: 0 0.35rem;
   background: var(--bg);
   font-size: 0.65rem;
   letter-spacing: 0.04em;
@@ -246,7 +263,16 @@ img {
 }
 
 .story-segment.current {
-  border-color: var(--accent);
+  border-left-color: var(--accent);
+  border-top-color: var(--border);
+  border-right-color: var(--border);
+  border-bottom-color: var(--border);
+  background: linear-gradient(to right, rgba(111, 173, 240, 0.05), var(--surface) 60%);
+}
+
+.story-segment.current::before {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .story-segment:not(.current) {
@@ -255,6 +281,9 @@ img {
 
 .story-segment:not(.current):hover {
   opacity: 1;
+  border-top-color: var(--border);
+  border-right-color: var(--border);
+  border-bottom-color: var(--border);
 }
 
 .segment-header {
@@ -303,26 +332,48 @@ img {
   font-size: 0.9rem;
   line-height: 1.7;
   color: var(--text);
+  white-space: pre-wrap;
+}
+
+// ── Options section ─────────────────────────────────────
+
+.options-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  padding-top: 0.75rem;
+  margin-bottom: -0.25rem;
+  border-top: 1px solid var(--border);
 }
 
 .options {
   display: grid;
-  gap: 0.5rem;
+  gap: 0.4rem;
 }
 
 .option-btn {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
+  gap: 0.75rem;
   background: var(--bg);
   border: 1px solid var(--border);
   color: var(--text);
   font-size: 0.85rem;
   text-align: left;
-  padding: 0.6rem 0.75rem;
+  padding: 0.65rem 0.85rem;
   border-radius: 3px;
-  transition: border-color 0.15s, background 0.15s;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+
+.option-btn::before {
+  content: "\203A"; // ›
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  flex-shrink: 0;
+  transition: color 0.15s, transform 0.15s;
 }
 
 .option-text {
@@ -341,18 +392,70 @@ img {
 
 .option-btn:hover {
   border-color: var(--accent);
-  background: var(--surface);
+  background: var(--accent-muted);
+}
+
+.option-btn:hover::before {
+  color: var(--accent);
+  transform: translateX(2px);
 }
 
 .option-btn.add-option-btn {
   border-style: dashed;
   color: var(--text-muted);
+  border-color: rgba(232, 168, 76, 0.35);
+}
+
+.option-btn.add-option-btn::before {
+  content: "+";
+  font-size: 0.95rem;
+  color: var(--accent-warm);
 }
 
 .option-btn.add-option-btn:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-warm);
+  color: var(--accent-warm);
+  background: var(--accent-warm-muted);
+}
+
+.option-btn.add-option-btn:hover::before {
+  color: var(--accent-warm);
+}
+
+// ── Intro / navigation ─────────────────────────────────
+
+.intro-text {
+  padding: 0.5rem 0;
+  margin-bottom: 0.5rem;
+}
+
+.intro-text p {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.7;
+}
+
+.back-to-root-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  padding: 0.25rem 0;
+  margin-bottom: 0.5rem;
+  transition: color 0.15s;
+}
+
+.back-to-root-btn::before {
+  content: "\2190"; // ←
+}
+
+.back-to-root-btn:hover {
   color: var(--accent);
 }
+
+// ── Loading / error ─────────────────────────────────────
 
 .loading {
   display: flex;
@@ -403,42 +506,15 @@ img {
   border-color: var(--accent);
 }
 
-.back-to-root-btn {
-  display: inline-block;
-  border: 1px solid var(--border);
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  padding: 0.25rem 0.6rem;
-  border-radius: 3px;
-  margin-bottom: 1rem;
-  transition: border-color 0.15s, color 0.15s;
-}
-
-.back-to-root-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-
-.intro-text {
-  padding: 1rem 1.25rem;
-  border-radius: 3px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  margin-bottom: 1rem;
-}
-
-.intro-text p {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  line-height: 1.65;
-}
+// ── Contribute form ─────────────────────────────────────
 
 .contribute-section {
   margin-top: 0.75rem;
-  padding: 1.25rem;
+  padding: 1.25rem 1.25rem 1.25rem 1.5rem;
   border-radius: 3px;
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-warm);
 }
 
 .contribute-header {
@@ -452,6 +528,7 @@ img {
 .contribute-section h2 {
   font-size: 0.95rem;
   font-weight: 600;
+  color: var(--accent-warm);
   margin-bottom: 0.25rem;
 }
 
@@ -472,8 +549,8 @@ img {
 }
 
 .llm-prompt-btn:hover {
-  border-color: var(--accent);
-  color: var(--accent);
+  border-color: var(--accent-warm);
+  color: var(--accent-warm);
 }
 
 .contribute-form {
@@ -505,7 +582,7 @@ img {
 .form-group input:focus,
 .form-group textarea:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--accent-warm);
 }
 
 .form-group input::placeholder,
@@ -520,7 +597,7 @@ img {
 }
 
 .submit-btn {
-  background: var(--accent);
+  background: var(--accent-warm);
   color: #1a1a1a;
   padding: 0.45rem 1rem;
   border-radius: 3px;
@@ -552,6 +629,8 @@ img {
   border-color: var(--accent);
   color: var(--text);
 }
+
+// ── Server counter ──────────────────────────────────────
 
 .app-header {
   position: fixed;
@@ -604,6 +683,8 @@ img {
   color: #e06060;
   font-size: 0.75rem;
 }
+
+// ── Responsive ──────────────────────────────────────────
 
 @media (max-width: 1024px) {
   .main-content {

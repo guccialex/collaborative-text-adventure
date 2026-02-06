@@ -95,6 +95,9 @@ pub fn StoryScroll(
                     // Has options - show them with "add your own" button
                     view! {
                         <div id="story-end">
+                            <h3 class="options-label">
+                                {if is_root { "Choose a story" } else { "What happens next?" }}
+                            </h3>
                             <div class="options">
                                 {opts.into_iter().map(|opt| {
                                     let o = opt.clone();

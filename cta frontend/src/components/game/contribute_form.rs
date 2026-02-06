@@ -61,9 +61,11 @@ fn build_llm_prompt(
     } else {
         // Continuing an existing story
         prompt.push_str(
-            "You are continuing a collaborative text adventure story. Below is the story so far, \
+            "You are continuing a text adventure story. Below is the story so far, \
              presented as a series of segments. Each segment begins with the choice that led to it, \
-             followed by the narrative.\n\n",
+             followed by the narrative. The first segment is the begining of the story, the strongest indicator of the scenario, the setting, the style. \
+             The story text you give for this choice should only be 2-4 paragraphs long, short (about 50-150 words long), unless specified to be longer. This is an endless story which continues on after, so don't close it. \
+             You can have interesting things happen, that can evolve the story, introduce new ideas, but it shouldn't end the story or bring the story to its conclusion.\n\n",
         );
 
         for (_i, node) in path_nodes {

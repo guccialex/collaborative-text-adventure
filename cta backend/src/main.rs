@@ -37,26 +37,6 @@ struct AppState {
 fn seed_nodes() -> Vec<AdventureNode> {
     vec![
         AdventureNode {
-            id: "bank_heist".into(),
-            parent_id: None,
-            choice_text: "The guy who was just trying to deposit a check".into(),
-            story_text: "The line at First National was seventeen people deep, which was about sixteen \
-more than Gary had patience for on a Friday afternoon. He'd been staring at the \
-back of the same bald head for twenty minutes, mentally composing a strongly \
-worded Yelp review, when the front doors slammed open and three figures in \
-rubber Halloween masks walked in carrying duffel bags and shotguns.\n\n\
-\"EVERYBODY ON THE GROUND! NOW!\"\n\n\
-Gary watched the bald head in front of him drop out of sight. Then the old lady \
-behind him. Then the college kid with the airpods who still hadn't noticed. A \
-shotgun blast into the ceiling fixed that. Plaster rained down like snow.\n\n\
-Gary looked at the deposit slip in his hand — his rent check, already three days \
-late — then at the guy in the Richard Nixon mask who was now zip-tying the \
-security guard to a potted plant. He looked at the clock: 4:47 PM. The bank \
-closed at 5.\n\n\
-He got on the ground, but he kept the deposit slip. He was NOT coming back on \
-Monday.".into(),
-        },
-        AdventureNode {
             id: "cursed_mario".into(),
             parent_id: None,
             choice_text: "Super Mario 128: The Lost Cartridge".into(),
