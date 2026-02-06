@@ -3,6 +3,7 @@ use leptos::ev;
 use leptos::prelude::*;
 
 use crate::domain::adventure::AdventureNode;
+use crate::state::adventure::use_adventure_state;
 
 use super::ContributeMode;
 
@@ -13,6 +14,7 @@ pub fn ContributeForm(
     mode: ContributeMode,
     #[prop(optional)] on_cancel: Option<Callback<ev::MouseEvent>>,
 ) -> impl IntoView {
+    let state = use_adventure_state();
     let (choice_text, set_choice_text) = signal(String::new());
     let (story_text, set_story_text) = signal(String::new());
     let (submitting, set_submitting) = signal(false);
@@ -22,10 +24,14 @@ pub fn ContributeForm(
         ev.prevent_default();
         set_submitting.set(true);
 
-        let new_unit = AdventureNode::user(&parent_id, choice_text.get(), story_text.get());
+        let node = AdventureNode {
+            id: format!("user_{}", js_sys::Date::now() as u64),
+            parent_id: Some(parent_id.clone()),
+            choice_text: choice_text.get(),
+            story_text: story_text.get(),
+        };
 
-        log::info!("Would submit: {:?}", new_unit);
-        set_submitting.set(false);
+        state.add_node(node);
     };
 
     view! {

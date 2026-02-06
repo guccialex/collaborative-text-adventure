@@ -1,7 +1,7 @@
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
-use crate::api::adventure::fetch_adventure;
+use crate::api::adventure::{fetch_adventure, submit_node};
 use crate::domain::adventure::{AdventureGraph, AdventureNode};
 
 #[derive(Clone)]
@@ -86,6 +86,36 @@ impl AdventureState {
 
     pub fn close_contribute(&self) {
         self.show_contribute.set(false);
+    }
+
+    pub fn add_node(&self, node: AdventureNode) {
+        let graph = self.graph;
+        let load_state = self.load_state;
+        let path = self.path;
+        let show_contribute = self.show_contribute;
+        let new_node_id = node.id.clone();
+
+        spawn_local(async move {
+            match submit_node(node).await {
+                Ok(()) => {
+                    match fetch_adventure().await {
+                        Ok(data) => {
+                            graph.set(data);
+                            path.update(|p| p.push(new_node_id));
+                            show_contribute.set(false);
+                            load_state.set(LoadState::Ready);
+                        }
+                        Err(error) => {
+                            load_state.set(LoadState::Error(error));
+                        }
+                    }
+                }
+                Err(error) => {
+                    log::error!("Failed to submit node: {}", error);
+                    load_state.set(LoadState::Error(error));
+                }
+            }
+        });
     }
 
     pub fn _reset_path(&self) {

@@ -1,27 +1,8 @@
 use std::collections::HashMap;
 
-use js_sys;
 use serde::{Deserialize, Serialize};
 
-/// The atomic building block of the adventure.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct AdventureNode {
-    pub id: String,
-    pub parent_id: Option<String>,
-    pub choice_text: String,
-    pub story_text: String,
-}
-
-impl AdventureNode {
-    pub fn user(parent_id: &str, choice_text: String, story_text: String) -> Self {
-        Self {
-            id: format!("user_{}", js_sys::Date::now() as u64),
-            parent_id: Some(parent_id.to_string()),
-            choice_text,
-            story_text,
-        }
-    }
-}
+pub use shared::AdventureNode;
 
 /// Indexed adventure graph with fast lookups.
 #[derive(Clone, Default, Serialize, Deserialize)]

@@ -6,7 +6,6 @@ use leptos_router::{components::*, path};
 pub mod api;
 pub mod config;
 mod domain;
-mod seed_data;
 mod state;
 mod components;
 mod pages;
