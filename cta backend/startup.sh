@@ -8,28 +8,20 @@ set -ex
 BINARY_URL="https://storage.googleapis.com/compiled_rust_for_text_adventure_server_to_run/cta-backend"
 APP_DIR="/opt/cta-backend"
 
-# Skip if already running
-if systemctl is-active --quiet cta-backend && systemctl is-active --quiet caddy; then
-    echo "Both services already running, skipping setup"
-    exit 0
-fi
-
 # ----- Detect public IP and build nip.io domain -----
 PUBLIC_IP=$(curl -s http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/access-configs/0/external-ip -H "Metadata-Flavor: Google")
 DOMAIN="${PUBLIC_IP}.nip.io"
 echo "Public IP: $PUBLIC_IP"
 echo "Domain: $DOMAIN"
 
-# ----- Wait for apt lock (GCP runs unattended-upgrades at boot) -----
-echo "Waiting for apt lock..."
-while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
-    echo "  apt is locked, waiting 5s..."
-    sleep 5
-done
-echo "apt lock is free"
-
-# ----- Install Caddy -----
+# ----- Install Caddy (first time only) -----
 if ! command -v caddy &> /dev/null; then
+    echo "Waiting for apt lock..."
+    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+        echo "  apt is locked, waiting 5s..."
+        sleep 5
+    done
+
     echo "Installing Caddy..."
     apt-get update
     apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl
@@ -57,15 +49,15 @@ if command -v ufw &> /dev/null; then
     ufw allow 443/tcp
 fi
 
-# ----- Download Backend -----
+# ----- Download backend binary (always, in case it was updated) -----
 echo "Downloading backend binary..."
 mkdir -p "$APP_DIR"
+systemctl stop cta-backend 2>/dev/null || true
 curl -L -o "$APP_DIR/cta-backend" "$BINARY_URL"
 chmod +x "$APP_DIR/cta-backend"
 ls -la "$APP_DIR/cta-backend"
 
 # ----- Create systemd service -----
-echo "Creating systemd service..."
 cat > /etc/systemd/system/cta-backend.service <<EOF
 [Unit]
 Description=CTA Backend
@@ -73,6 +65,7 @@ After=network.target
 
 [Service]
 ExecStart=$APP_DIR/cta-backend
+WorkingDirectory=$APP_DIR
 Restart=always
 Environment=RUST_LOG=info
 Environment=HOST=127.0.0.1
@@ -83,7 +76,6 @@ WantedBy=multi-user.target
 EOF
 
 # ----- Start Services -----
-echo "Starting services..."
 systemctl daemon-reload
 systemctl enable --now cta-backend
 systemctl restart caddy
