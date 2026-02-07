@@ -1,7 +1,5 @@
 use std::collections::HashMap;
-use std::fs::{self, OpenOptions};
-use std::io::{self, BufRead, Write};
-use std::path::Path;
+use std::io;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 
@@ -12,15 +10,12 @@ use actix_web::{
     middleware, web,
 };
 use futures::StreamExt;
+use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 use shared::{AdventureNode, ServerMessage};
 
 fn get_env(key: &str, default: &str) -> String {
     std::env::var(key).unwrap_or_else(|_| default.to_string())
-}
-
-fn cors_permissive() -> Cors {
-    Cors::permissive()
 }
 
 // Global counter stored in memory - persists across frontend restarts
@@ -33,6 +28,7 @@ struct CounterResponse {
 
 struct AppState {
     nodes: Vec<AdventureNode>,
+    db: Connection,
 }
 
 fn seed_nodes() -> Vec<AdventureNode> {
@@ -41,6 +37,7 @@ fn seed_nodes() -> Vec<AdventureNode> {
             id: "cursed_mario".into(),
             parent_id: None,
             choice_text: "Super Mario 128: The Lost Cartridge".into(),
+            created_by: None,
             story_text: "OK so this is a TRUE story and before you say anything, YES I know how it \
 sounds, but I need to get this out there because people need to KNOW.\n\n\
 It was summer 2007 and I was at my Uncle Rick's house because my mom said I \
@@ -76,51 +73,84 @@ red ground under a black sky, and my shoes were made of pixels.".into(),
     ]
 }
 
-const NODES_FILE: &str = "./adventurenodes.jsonl";
+const DB_PATH: &str = "./adventure.db";
 
-fn load_nodes_from_file() -> Vec<AdventureNode> {
-    let path = Path::new(NODES_FILE);
-    if !path.exists() {
-        return Vec::new();
-    }
-    let file = match fs::File::open(path) {
-        Ok(f) => f,
-        Err(e) => {
-            tracing::error!("Failed to open {}: {}", NODES_FILE, e);
-            return Vec::new();
-        }
-    };
-    let reader = io::BufReader::new(file);
-    let mut nodes = Vec::new();
-    for (i, line) in reader.lines().enumerate() {
-        match line {
-            Ok(line) if line.trim().is_empty() => continue,
-            Ok(line) => match serde_json::from_str::<AdventureNode>(&line) {
-                Ok(node) => nodes.push(node),
-                Err(e) => tracing::warn!("Skipping invalid line {} in {}: {}", i + 1, NODES_FILE, e),
-            },
-            Err(e) => tracing::warn!("Failed to read line {} in {}: {}", i + 1, NODES_FILE, e),
-        }
-    }
+const NG_APP_ID: &str = "61527:TKbPOk1F";
+const NG_GATEWAY_URL: &str = "https://newgrounds.io/gateway_v3.php";
+
+fn init_db(path: &str) -> Connection {
+    let conn = Connection::open(path).expect("Failed to open SQLite database");
+    conn.execute_batch(
+        "CREATE TABLE IF NOT EXISTS nodes (
+            id TEXT PRIMARY KEY,
+            parent_id TEXT,
+            choice_text TEXT NOT NULL,
+            story_text TEXT NOT NULL,
+            created_by TEXT,
+            created_at INTEGER DEFAULT (unixepoch())
+        )"
+    ).expect("Failed to create nodes table");
+    conn
+}
+
+fn load_nodes_from_db(conn: &Connection) -> Vec<AdventureNode> {
+    let mut stmt = conn
+        .prepare("SELECT id, parent_id, choice_text, story_text, created_by FROM nodes")
+        .expect("Failed to prepare SELECT statement");
+    let nodes = stmt
+        .query_map([], |row| {
+            Ok(AdventureNode {
+                id: row.get(0)?,
+                parent_id: row.get(1)?,
+                choice_text: row.get(2)?,
+                story_text: row.get(3)?,
+                created_by: row.get(4)?,
+            })
+        })
+        .expect("Failed to query nodes")
+        .filter_map(|r| r.ok())
+        .collect();
     nodes
 }
 
-fn append_node_to_file(node: &AdventureNode) {
-    let mut file = match OpenOptions::new().create(true).append(true).open(NODES_FILE) {
-        Ok(f) => f,
-        Err(e) => {
-            tracing::error!("Failed to open {} for writing: {}", NODES_FILE, e);
-            return;
-        }
-    };
-    match serde_json::to_string(node) {
-        Ok(json) => {
-            if let Err(e) = writeln!(file, "{}", json) {
-                tracing::error!("Failed to write to {}: {}", NODES_FILE, e);
-            }
-        }
-        Err(e) => tracing::error!("Failed to serialize node to JSON: {}", e),
+fn insert_node(conn: &Connection, node: &AdventureNode) {
+    if let Err(e) = conn.execute(
+        "INSERT OR IGNORE INTO nodes (id, parent_id, choice_text, story_text, created_by) VALUES (?1, ?2, ?3, ?4, ?5)",
+        rusqlite::params![node.id, node.parent_id, node.choice_text, node.story_text, node.created_by],
+    ) {
+        tracing::error!("Failed to insert node {}: {}", node.id, e);
     }
+}
+
+async fn verify_ng_session(client: &reqwest::Client, session_id: &str) -> Result<Option<String>, String> {
+    let payload = serde_json::json!({
+        "app_id": NG_APP_ID,
+        "session_id": session_id,
+        "call": {
+            "component": "App.checkSession",
+            "parameters": {}
+        }
+    });
+
+    let resp = client
+        .post(NG_GATEWAY_URL)
+        .header("Content-Type", "application/x-www-form-urlencoded")
+        .body(format!("input={}", payload))
+        .send()
+        .await
+        .map_err(|e| format!("NG gateway request failed: {}", e))?;
+
+    let body: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("NG gateway response parse failed: {}", e))?;
+
+    let username = body
+        .pointer("/result/data/session/user/name")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    Ok(username)
 }
 
 fn compute_descendant_counts(nodes: &[AdventureNode]) -> HashMap<String, u64> {
@@ -168,9 +198,9 @@ fn handle_message(msg: ServerMessage, state: &mut AppState) -> ServerMessage {
         ServerMessage::RequestDescendantCounts => {
             ServerMessage::ReturnDescendantCounts(compute_descendant_counts(&state.nodes))
         }
-        ServerMessage::SubmitAdventureNode(node) => {
-            tracing::info!("Received new adventure node: {:?}", node.id);
-            append_node_to_file(&node);
+        ServerMessage::SubmitAdventureNode { node, .. } => {
+            tracing::info!("Received new adventure node: {:?} (by {:?})", node.id, node.created_by);
+            insert_node(&state.db, &node);
             state.nodes.push(node);
             ServerMessage::Ok
         }
@@ -185,6 +215,7 @@ fn handle_message(msg: ServerMessage, state: &mut AppState) -> ServerMessage {
 async fn api_bincode(
     body: web::Bytes,
     data: web::Data<Mutex<AppState>>,
+    client: web::Data<reqwest::Client>,
 ) -> impl Responder {
     let msg = match bincode::deserialize::<ServerMessage>(&body) {
         Ok(msg) => msg,
@@ -196,6 +227,25 @@ async fn api_bincode(
     };
 
     tracing::info!("Received API message: {:?}", std::mem::discriminant(&msg));
+
+    // If this is a SubmitAdventureNode with a session_id, verify it before locking state
+    let msg = match msg {
+        ServerMessage::SubmitAdventureNode { mut node, session_id } => {
+            if let Some(sid) = session_id {
+                match verify_ng_session(&client, &sid).await {
+                    Ok(username) => {
+                        node.created_by = username;
+                    }
+                    Err(e) => {
+                        tracing::warn!("NG session verification failed: {}", e);
+                        node.created_by = None;
+                    }
+                }
+            }
+            ServerMessage::SubmitAdventureNode { node, session_id: None }
+        }
+        other => other,
+    };
 
     let response = {
         let mut state = data.lock().unwrap();
@@ -339,14 +389,18 @@ async fn main() -> io::Result<()> {
         )
         .init();
 
-    let mut nodes = seed_nodes();
-    tracing::info!("Loaded {} seed adventure nodes", nodes.len());
+    let conn = init_db(DB_PATH);
+    tracing::info!("SQLite database initialized at {}", DB_PATH);
 
-    let file_nodes = load_nodes_from_file();
-    tracing::info!("Loaded {} adventure nodes from {}", file_nodes.len(), NODES_FILE);
-    nodes.extend(file_nodes);
+    // Insert seed nodes (idempotent)
+    for node in seed_nodes() {
+        insert_node(&conn, &node);
+    }
 
-    let app_state = web::Data::new(Mutex::new(AppState { nodes }));
+    let nodes = load_nodes_from_db(&conn);
+    tracing::info!("Loaded {} adventure nodes from SQLite", nodes.len());
+
+    let app_state = web::Data::new(Mutex::new(AppState { nodes, db: conn }));
 
     let http_client = web::Data::new(
         reqwest::Client::builder()
@@ -365,7 +419,7 @@ async fn main() -> io::Result<()> {
             .app_data(app_state.clone())
             .app_data(http_client.clone())
             // Allow all origins
-            .wrap(cors_permissive())
+            .wrap(Cors::permissive())
             // enable automatic response compression
             .wrap(middleware::Compress::default())
             // enable logger

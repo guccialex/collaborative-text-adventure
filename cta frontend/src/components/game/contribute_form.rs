@@ -4,6 +4,7 @@ use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 
 use crate::api::llm::call_llm_stream;
+use crate::api::newgrounds::get_session_id;
 use crate::domain::adventure::AdventureNode;
 use crate::state::adventure::use_adventure_state;
 use crate::state::llm::use_llm_state;
@@ -84,14 +85,17 @@ pub fn ContributeForm(
         ev.prevent_default();
         set_submitting.set(true);
 
+        let session_id = get_session_id();
+
         let node = AdventureNode {
             id: format!("user_{}", js_sys::Date::now() as u64),
             parent_id: if parent_id.is_empty() { None } else { Some(parent_id.clone()) },
             choice_text: choice_text.get(),
             story_text: story_text.get(),
+            created_by: None,
         };
 
-        state.add_node(node);
+        state.add_node(node, session_id);
     };
 
     let on_copy_prompt = move |_: ev::MouseEvent| {
@@ -142,7 +146,6 @@ pub fn ContributeForm(
 
         let gen = llm_gen.get() + 1;
         set_llm_gen.set(gen);
-        set_story_text.set(String::new());
         set_llm_loading.set(true);
         set_llm_error.set(None);
 

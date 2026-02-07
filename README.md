@@ -7,7 +7,7 @@ A branching text adventure where players read, choose paths, and write new story
 ```
 cta frontend/           Leptos WASM frontend (compiles to static HTML/JS/WASM)
   src/config.rs         API_BASE configuration
-cta backend/            Actix-web backend (persists to adventurenodes.jsonl)
+cta backend/            Actix-web backend (persists to adventure.db via SQLite)
   startup.sh            GCP VM startup script
 shared/                 Types shared between frontend and backend
 run.sh                  Run both locally
@@ -109,11 +109,6 @@ Works with GitHub Pages, Netlify, Vercel, S3, or just `python3 -m http.server` i
 | `/api/counter` | GET | Get counter value |
 | `/api/counter/increment` | POST | Increment counter |
 
-## Future: Newgrounds API Integration
+## Newgrounds Integration
 
-`AdventureNode` could gain a `creator_id: Option<String>` field to attribute contributions to Newgrounds users. Two integration paths:
-
-1. **Frontend**: Load a JS Newgrounds library in `index.html`, call via `#[wasm_bindgen]` (handles login popup + session)
-2. **Backend**: Validate Newgrounds session tokens server-side via `reqwest` (more secure)
-
-Enables attribution, medals ("first contribution"), and scoreboards.
+Each submitted node carries the user's `ngio_session_id` from the URL query string. The backend verifies it server-side against the Newgrounds gateway API and stores the verified username in `created_by`.

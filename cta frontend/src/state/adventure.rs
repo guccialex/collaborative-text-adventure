@@ -100,7 +100,7 @@ impl AdventureState {
         self.show_contribute.set(false);
     }
 
-    pub fn add_node(&self, node: AdventureNode) {
+    pub fn add_node(&self, node: AdventureNode, session_id: Option<String>) {
         let graph = self.graph;
         let counts = self.descendant_counts;
         let load_state = self.load_state;
@@ -109,7 +109,7 @@ impl AdventureState {
         let new_node_id = node.id.clone();
 
         spawn_local(async move {
-            match submit_node(node).await {
+            match submit_node(node, session_id).await {
                 Ok(()) => {
                     match fetch_adventure().await {
                         Ok(data) => {

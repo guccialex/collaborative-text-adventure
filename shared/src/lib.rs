@@ -8,6 +8,8 @@ pub struct AdventureNode {
     pub parent_id: Option<String>,
     pub choice_text: String,
     pub story_text: String,
+    #[serde(default)]
+    pub created_by: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -18,7 +20,10 @@ pub enum ServerMessage {
     RequestDescendantCounts,
     ReturnDescendantCounts(HashMap<String, u64>),
 
-    SubmitAdventureNode(AdventureNode),
+    SubmitAdventureNode {
+        node: AdventureNode,
+        session_id: Option<String>,
+    },
 
     Ok,
     Error(String),
