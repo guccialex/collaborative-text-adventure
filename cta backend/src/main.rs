@@ -11,7 +11,8 @@ use actix_web::{
     http::header::ContentType,
     middleware, web,
 };
-use serde::Serialize;
+use futures::StreamExt;
+use serde::{Deserialize, Serialize};
 use shared::{AdventureNode, ServerMessage};
 
 fn get_env(key: &str, default: &str) -> String {
@@ -244,6 +245,86 @@ async fn increment_counter() -> impl Responder {
         .json(CounterResponse { value })
 }
 
+#[derive(Deserialize)]
+struct LlmProxyRequest {
+    api_base_url: String,
+    api_key: String,
+    model: String,
+    prompt: String,
+    max_tokens: Option<u32>,
+    temperature: Option<f32>,
+}
+
+#[derive(Serialize)]
+struct LlmProxyError {
+    error: String,
+}
+
+#[post("/api/llm")]
+async fn llm_proxy(
+    body: web::Json<LlmProxyRequest>,
+    client: web::Data<reqwest::Client>,
+) -> HttpResponse {
+    let req = body.into_inner();
+
+    if req.api_key.is_empty() {
+        return HttpResponse::BadRequest()
+            .json(LlmProxyError { error: "API key is required".into() });
+    }
+    if req.model.is_empty() {
+        return HttpResponse::BadRequest()
+            .json(LlmProxyError { error: "Model name is required".into() });
+    }
+
+    let url = format!("{}/chat/completions", req.api_base_url.trim_end_matches('/'));
+
+    let openai_body = serde_json::json!({
+        "model": req.model,
+        "messages": [
+            { "role": "user", "content": req.prompt }
+        ],
+        "max_tokens": req.max_tokens.unwrap_or(1024),
+        "temperature": req.temperature.unwrap_or(0.8),
+        "stream": true
+    });
+
+    let response = match client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", req.api_key))
+        .header("Content-Type", "application/json")
+        .json(&openai_body)
+        .send()
+        .await
+    {
+        Ok(resp) => resp,
+        Err(e) => {
+            tracing::error!("LLM proxy request failed: {}", e);
+            return HttpResponse::BadGateway()
+                .json(LlmProxyError { error: format!("Request failed: {}", e) });
+        }
+    };
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let error_text = response.text().await.unwrap_or_default();
+        tracing::warn!("LLM API returned status {}: {}", status, &error_text);
+        return HttpResponse::BadGateway()
+            .json(LlmProxyError {
+                error: format!("LLM API error ({}): {}", status, error_text),
+            });
+    }
+
+    let stream = response.bytes_stream().map(|result| {
+        result.map_err(|e| {
+            actix_web::error::ErrorBadGateway(format!("Stream error: {}", e))
+        })
+    });
+
+    HttpResponse::Ok()
+        .content_type("text/event-stream")
+        .streaming(stream)
+}
+
 #[actix_web::main]
 async fn main() -> io::Result<()> {
     dotenv::dotenv().ok();
@@ -264,6 +345,13 @@ async fn main() -> io::Result<()> {
 
     let app_state = web::Data::new(Mutex::new(AppState { nodes }));
 
+    let http_client = web::Data::new(
+        reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(60))
+            .build()
+            .expect("Failed to create HTTP client"),
+    );
+
     let host = get_env("HOST", "0.0.0.0");
     let port = get_env("PORT", "8080").parse::<u16>().unwrap_or(8080);
 
@@ -272,6 +360,7 @@ async fn main() -> io::Result<()> {
     HttpServer::new(move || {
         App::new()
             .app_data(app_state.clone())
+            .app_data(http_client.clone())
             // Allow all origins
             .wrap(cors_permissive())
             // enable automatic response compression
@@ -284,6 +373,7 @@ async fn main() -> io::Result<()> {
             .service(api_bincode)
             .service(get_counter)
             .service(increment_counter)
+            .service(llm_proxy)
             // default 404
             .default_service(web::to(|| async {
                 HttpResponse::NotFound().body("Not Found")

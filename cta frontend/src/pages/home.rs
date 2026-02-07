@@ -1,11 +1,13 @@
 use crate::components::game::Game;
 use crate::state::adventure::provide_adventure_state;
+use crate::state::llm::provide_llm_state;
 use leptos::prelude::*;
 
 /// Default Home Page
 #[component]
 pub fn Home() -> impl IntoView {
     provide_adventure_state();
+    provide_llm_state();
 
     view! {
         <ErrorBoundary fallback=|errors| {

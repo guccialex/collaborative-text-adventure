@@ -191,6 +191,106 @@ img {
   color: var(--text);
 }
 
+// ── LLM Settings (sidebar) ──────────────────────────────
+
+.llm-settings-section {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.llm-settings-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.25rem 0;
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  transition: color 0.15s;
+}
+
+.llm-settings-toggle:hover {
+  color: var(--text);
+}
+
+.toggle-arrow {
+  font-size: 0.75rem;
+}
+
+.llm-settings-body {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.llm-providers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+.llm-provider-btn {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 3px;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  background: none;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.llm-provider-btn:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.llm-provider-btn.active {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-muted);
+}
+
+.llm-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.llm-field label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.llm-field input {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 3px;
+}
+
+.llm-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.llm-field input::placeholder {
+  color: #555;
+}
+
+.llm-field input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 // ── Main content ────────────────────────────────────────
 
 .main-content {
@@ -553,6 +653,41 @@ img {
   color: var(--accent-warm);
 }
 
+.llm-actions {
+  display: flex;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.llm-call-btn {
+  white-space: nowrap;
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 3px;
+  transition: background 0.15s, color 0.15s, opacity 0.15s;
+}
+
+.llm-call-btn:hover:not(:disabled) {
+  background: var(--accent-muted);
+}
+
+.llm-call-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.llm-error {
+  background: rgba(220, 50, 50, 0.1);
+  border: 1px solid rgba(220, 50, 50, 0.3);
+  color: #e06060;
+  font-size: 0.8rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 3px;
+  margin-bottom: 0.5rem;
+}
+
 .contribute-form {
   display: flex;
   flex-direction: column;
@@ -576,7 +711,12 @@ img {
   font-size: 0.85rem;
   padding: 0.5rem 0.6rem;
   border-radius: 3px;
-  resize: vertical;
+}
+
+.form-group textarea {
+  min-height: 6rem;
+  resize: none;
+  overflow: hidden;
 }
 
 .form-group input:focus,

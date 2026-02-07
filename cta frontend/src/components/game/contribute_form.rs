@@ -3,8 +3,10 @@ use leptos::ev;
 use leptos::prelude::*;
 use wasm_bindgen::prelude::*;
 
+use crate::api::llm::call_llm_stream;
 use crate::domain::adventure::AdventureNode;
 use crate::state::adventure::use_adventure_state;
+use crate::state::llm::use_llm_state;
 
 use super::ContributeMode;
 
@@ -23,9 +25,20 @@ export function copy_to_clipboard(text) {
     document.body.removeChild(textarea);
     return Promise.resolve();
 }
+
+export function auto_resize_story_textarea() {
+    requestAnimationFrame(() => {
+        const el = document.querySelector('.contribute-form textarea');
+        if (el) {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        }
+    });
+}
 ")]
 extern "C" {
     fn copy_to_clipboard(text: &str) -> js_sys::Promise;
+    fn auto_resize_story_textarea();
 }
 
 fn build_llm_prompt(
@@ -104,10 +117,14 @@ pub fn ContributeForm(
     #[prop(optional)] on_cancel: Option<Callback<ev::MouseEvent>>,
 ) -> impl IntoView {
     let state = use_adventure_state();
+    let llm = use_llm_state();
     let (choice_text, set_choice_text) = signal(String::new());
     let (story_text, set_story_text) = signal(String::new());
     let (submitting, set_submitting) = signal(false);
     let (copied, set_copied) = signal(false);
+    let (llm_loading, set_llm_loading) = signal(false);
+    let (llm_error, set_llm_error) = signal::<Option<String>>(None);
+    let (llm_gen, set_llm_gen) = signal(0u64);
     let show_cancel = on_cancel.is_some();
     let is_new_story = mode == ContributeMode::NewStory;
 
@@ -148,6 +165,50 @@ pub fn ContributeForm(
         });
     };
 
+    let on_call_llm = move |_: ev::MouseEvent| {
+        let config = llm.config().get();
+        let graph = state.graph().get();
+        let path = state.path().get();
+        let path_nodes: Vec<(usize, AdventureNode)> = path
+            .iter()
+            .enumerate()
+            .filter_map(|(i, id)| graph.node(id).map(|n| (i, n.clone())))
+            .collect();
+
+        let prompt = build_llm_prompt(&path_nodes, &choice_text.get(), &story_text.get());
+
+        let gen = llm_gen.get() + 1;
+        set_llm_gen.set(gen);
+        set_story_text.set(String::new());
+        set_llm_loading.set(true);
+        set_llm_error.set(None);
+
+        leptos::task::spawn_local(async move {
+            match call_llm_stream(
+                &config.api_base_url,
+                &config.api_key,
+                &config.model,
+                &prompt,
+                move |chunk| {
+                    if llm_gen.get() == gen {
+                        set_story_text.update(|s| s.push_str(chunk));
+                        auto_resize_story_textarea();
+                    }
+                },
+            )
+            .await
+            {
+                Ok(()) => {
+                    set_llm_loading.set(false);
+                }
+                Err(e) => {
+                    set_llm_error.set(Some(e));
+                    set_llm_loading.set(false);
+                }
+            }
+        });
+    };
+
     view! {
         <div class="contribute-section">
             <div class="contribute-header">
@@ -155,14 +216,41 @@ pub fn ContributeForm(
                     <h2>{mode.title()}</h2>
                     <p class="hint">{mode.hint()}</p>
                 </div>
-                <button
-                    type="button"
-                    class="llm-prompt-btn"
-                    on:click=on_copy_prompt
-                >
-                    {move || if copied.get() { "Copied!" } else { "Copy as LLM prompt" }}
-                </button>
+                <div class="llm-actions">
+                    <button
+                        type="button"
+                        class="llm-call-btn"
+                        on:click=on_call_llm
+                        disabled=move || {
+                            let c = llm.config().get();
+                            llm_loading.get() || c.api_key.is_empty() || c.api_base_url.is_empty() || c.model.is_empty()
+                        }
+                        title=move || {
+                            let c = llm.config().get();
+                            if c.api_key.is_empty() || c.api_base_url.is_empty() || c.model.is_empty() {
+                                "Configure LLM settings in the sidebar first".to_string()
+                            } else {
+                                "Generate story text using LLM".to_string()
+                            }
+                        }
+                    >
+                        {move || if llm_loading.get() { "Generating..." } else { "Call LLM" }}
+                    </button>
+                    <button
+                        type="button"
+                        class="llm-prompt-btn"
+                        on:click=on_copy_prompt
+                    >
+                        {move || if copied.get() { "Copied!" } else { "Copy as LLM prompt" }}
+                    </button>
+                </div>
             </div>
+
+            <Show when=move || llm_error.get().is_some()>
+                <div class="llm-error">
+                    {move || llm_error.get().unwrap_or_default()}
+                </div>
+            </Show>
 
             <form class="contribute-form" on:submit=on_submit>
                 <div class="form-group">
@@ -189,8 +277,10 @@ pub fn ContributeForm(
                             "What happens when the player makes this choice..."
                         }}
                         prop:value=move || story_text.get()
-                        on:input=move |ev| set_story_text.set(event_target_value(&ev))
-                        rows="4"
+                        on:input=move |ev| {
+                            set_story_text.set(event_target_value(&ev));
+                            auto_resize_story_textarea();
+                        }
                         required
                     />
                 </div>

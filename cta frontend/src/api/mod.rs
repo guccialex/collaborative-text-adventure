@@ -1,5 +1,6 @@
 pub mod adventure;
 pub mod counter;
+pub mod llm;
 
 use js_sys::Uint8Array;
 use shared::ServerMessage;
