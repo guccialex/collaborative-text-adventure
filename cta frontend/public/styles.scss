@@ -291,6 +291,108 @@ img {
   cursor: not-allowed;
 }
 
+.llm-field textarea {
+  width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-size: 0.75rem;
+  padding: 0.35rem 0.5rem;
+  border-radius: 3px;
+  font-family: inherit;
+  line-height: 1.5;
+  resize: none;
+  overflow: hidden;
+}
+
+.llm-field textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.llm-prompt-textarea {
+  min-height: 4rem;
+}
+
+.llm-prompt-section {
+  margin-top: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.llm-prompt-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+}
+
+.llm-reset-btn {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  padding: 0.1rem 0.3rem;
+  border-radius: 2px;
+  border: 1px solid var(--border);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.llm-reset-btn:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+
+.llm-prompt-hint {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  margin-bottom: 0.35rem;
+}
+
+.llm-prompt-vars {
+  list-style: none;
+  margin: 0.2rem 0 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.llm-prompt-vars li {
+  font-size: 0.6rem;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.llm-prompt-vars code {
+  background: var(--bg);
+  padding: 0.05rem 0.25rem;
+  border-radius: 2px;
+  font-size: 0.6rem;
+  color: var(--accent);
+}
+
+.llm-enable-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  cursor: pointer;
+  padding: 0.25rem 0;
+  margin-bottom: 0.25rem;
+}
+
+.llm-enable-checkbox input[type="checkbox"] {
+  accent-color: var(--accent);
+  width: 13px;
+  height: 13px;
+  cursor: pointer;
+}
+
+.llm-enable-checkbox span {
+  font-size: 0.7rem;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
 // ── Main content ────────────────────────────────────────
 
 .main-content {
@@ -823,6 +925,7 @@ img {
   color: #e06060;
   font-size: 0.75rem;
 }
+
 
 // ── Responsive ──────────────────────────────────────────
 

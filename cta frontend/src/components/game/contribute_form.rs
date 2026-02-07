@@ -42,71 +42,23 @@ extern "C" {
 }
 
 fn build_llm_prompt(
+    template: &str,
     path_nodes: &[(usize, AdventureNode)],
     choice_text: &str,
     story_text: &str,
 ) -> String {
-    let mut prompt = String::new();
-
-    if path_nodes.is_empty() {
-        // Starting a brand new story — no prior context
-        prompt.push_str(
-            "You are writing the opening segment of a collaborative text adventure story.\n\n",
-        );
-
-        prompt.push_str(&format!(
-            "The premise is: \"{}\"\n\n",
-            choice_text,
-        ));
-
-        if !story_text.is_empty() {
-            prompt.push_str(&format!(
-                "The author has described what they want to happen: \"{}\"\n\n",
-                story_text,
-            ));
-        }
-
-        prompt.push_str(
-            "Write the opening segment (a few paragraphs). Set the scene, establish the \
-             atmosphere, and draw the reader in. Write only the narrative text \
-             — do not include choices or options at the end.",
-        );
-    } else {
-        // Continuing an existing story
-        prompt.push_str(
-            "You are continuing a text adventure story. Below is the story so far, \
-             presented as a series of segments. Each segment begins with the choice that led to it, \
-             followed by the narrative. The first segment is the begining of the story, the strongest indicator of the scenario, the setting, the style. \
-             The story text you give for this choice should only be 2-4 paragraphs long, short (about 50-150 words long), unless specified to be longer. This is an endless story which continues on after, so don't close it. \
-             You can have interesting things happen, that can evolve the story, introduce new ideas, but it shouldn't end the story or bring the story to its conclusion.\n\n",
-        );
-
-        for (_i, node) in path_nodes {
-            prompt.push_str(&format!("Choice: \"{}\"\n\n", node.choice_text));
-            prompt.push_str(&node.story_text);
-            prompt.push_str("\n\n---\n\n");
-        }
-
-        prompt.push_str(&format!(
-            "The reader has chosen: \"{}\"\n\n",
-            choice_text,
-        ));
-
-        if !story_text.is_empty() {
-            prompt.push_str(&format!(
-                "They have described what should happen: \"{}\"\n\n",
-                story_text,
-            ));
-        }
-
-        prompt.push_str(
-            "Write the next segment of the story (a few paragraphs). Match the tone, style, \
-             and atmosphere established so far. Make it vivid and engaging. Write only the \
-             narrative text for this segment — do not include choices or options at the end.",
-        );
+    let mut history = String::new();
+    for (_i, node) in path_nodes {
+        history.push_str(&format!("Choice: \"{}\"\n\n", node.choice_text));
+        history.push_str(&node.story_text);
+        history.push_str("\n\n---\n\n");
     }
+    let history = history.trim_end().to_string();
 
-    prompt
+    template
+        .replace("{story path node history}", &history)
+        .replace("{choice text}", choice_text)
+        .replace("{story text}", story_text)
 }
 
 /// Form for continuing the story or adding a branch.
@@ -143,6 +95,7 @@ pub fn ContributeForm(
     };
 
     let on_copy_prompt = move |_: ev::MouseEvent| {
+        let config = llm.config().get();
         let graph = state.graph().get();
         let path = state.path().get();
         let path_nodes: Vec<(usize, AdventureNode)> = path
@@ -151,7 +104,12 @@ pub fn ContributeForm(
             .filter_map(|(i, id)| graph.node(id).map(|n| (i, n.clone())))
             .collect();
 
-        let prompt = build_llm_prompt(&path_nodes, &choice_text.get(), &story_text.get());
+        let template = if path_nodes.is_empty() {
+            &config.prompt_new_story
+        } else {
+            &config.prompt_continuing
+        };
+        let prompt = build_llm_prompt(template, &path_nodes, &choice_text.get(), &story_text.get());
 
         let promise = copy_to_clipboard(&prompt);
 
@@ -175,7 +133,12 @@ pub fn ContributeForm(
             .filter_map(|(i, id)| graph.node(id).map(|n| (i, n.clone())))
             .collect();
 
-        let prompt = build_llm_prompt(&path_nodes, &choice_text.get(), &story_text.get());
+        let template = if path_nodes.is_empty() {
+            &config.prompt_new_story
+        } else {
+            &config.prompt_continuing
+        };
+        let prompt = build_llm_prompt(template, &path_nodes, &choice_text.get(), &story_text.get());
 
         let gen = llm_gen.get() + 1;
         set_llm_gen.set(gen);
@@ -216,34 +179,36 @@ pub fn ContributeForm(
                     <h2>{mode.title()}</h2>
                     <p class="hint">{mode.hint()}</p>
                 </div>
-                <div class="llm-actions">
-                    <button
-                        type="button"
-                        class="llm-call-btn"
-                        on:click=on_call_llm
-                        disabled=move || {
-                            let c = llm.config().get();
-                            llm_loading.get() || c.api_key.is_empty() || c.api_base_url.is_empty() || c.model.is_empty()
-                        }
-                        title=move || {
-                            let c = llm.config().get();
-                            if c.api_key.is_empty() || c.api_base_url.is_empty() || c.model.is_empty() {
-                                "Configure LLM settings in the sidebar first".to_string()
-                            } else {
-                                "Generate story text using LLM".to_string()
+                <Show when=move || llm.config().get().llm_enabled>
+                    <div class="llm-actions">
+                        <button
+                            type="button"
+                            class="llm-call-btn"
+                            on:click=on_call_llm
+                            disabled=move || {
+                                let c = llm.config().get();
+                                llm_loading.get() || c.api_key.is_empty() || c.api_base_url.is_empty() || c.model.is_empty()
                             }
-                        }
-                    >
-                        {move || if llm_loading.get() { "Generating..." } else { "Call LLM" }}
-                    </button>
-                    <button
-                        type="button"
-                        class="llm-prompt-btn"
-                        on:click=on_copy_prompt
-                    >
-                        {move || if copied.get() { "Copied!" } else { "Copy as LLM prompt" }}
-                    </button>
-                </div>
+                            title=move || {
+                                let c = llm.config().get();
+                                if c.api_key.is_empty() || c.api_base_url.is_empty() || c.model.is_empty() {
+                                    "Configure LLM settings in the sidebar first".to_string()
+                                } else {
+                                    "Generate story text using LLM".to_string()
+                                }
+                            }
+                        >
+                            {move || if llm_loading.get() { "Generating..." } else { "Call LLM" }}
+                        </button>
+                        <button
+                            type="button"
+                            class="llm-prompt-btn"
+                            on:click=on_copy_prompt
+                        >
+                            {move || if copied.get() { "Copied!" } else { "Copy as LLM prompt" }}
+                        </button>
+                    </div>
+                </Show>
             </div>
 
             <Show when=move || llm_error.get().is_some()>

@@ -52,12 +52,55 @@ impl LlmProvider {
     }
 }
 
+pub const DEFAULT_PROMPT_NEW_STORY: &str = "\
+You are writing the opening segment of a collaborative text adventure story.
+
+The premise is: \"{choice text}\"
+
+{story text}
+
+Write the opening segment (a few paragraphs). Set the scene, establish the atmosphere, and draw the reader in. Write only the narrative text \
+— do not include choices or options at the end.";
+
+pub const DEFAULT_PROMPT_CONTINUING: &str = "\
+You are continuing a text adventure story. Below is the story so far, \
+presented as a series of segments. Each segment begins with the choice that led to it, \
+followed by the narrative. The first segment is the begining of the story, the strongest indicator of the scenario, the setting, the style. \
+The story text you give for this choice should only be 2-4 paragraphs long, short (about 50-150 words long), unless specified to be longer. \
+You can have interesting things happen, that can evolve the story, introduce new ideas, but this is an endless story so it shouldn't end it or bring the story to its conclusion.
+
+{story path node history}
+
+This is the choice/path selected: \"{choice text}\"
+
+This is the content the user has written so far, some details about what the response you return should be: \"{story text}\"
+
+Write the next segment of the story (a few paragraphs). Match the tone, style, \
+and atmosphere established so far. Make it vivid and engaging. Write only the \
+narrative text for this segment — do not include choices or options at the end.";
+
+fn default_true() -> bool {
+    true
+}
+fn default_prompt_new_story() -> String {
+    DEFAULT_PROMPT_NEW_STORY.to_string()
+}
+fn default_prompt_continuing() -> String {
+    DEFAULT_PROMPT_CONTINUING.to_string()
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct LlmConfig {
     pub provider: LlmProvider,
     pub api_base_url: String,
     pub api_key: String,
     pub model: String,
+    #[serde(default = "default_true")]
+    pub llm_enabled: bool,
+    #[serde(default = "default_prompt_new_story")]
+    pub prompt_new_story: String,
+    #[serde(default = "default_prompt_continuing")]
+    pub prompt_continuing: String,
 }
 
 impl Default for LlmConfig {
@@ -67,6 +110,9 @@ impl Default for LlmConfig {
             api_base_url: LlmProvider::OpenAI.base_url().to_string(),
             api_key: String::new(),
             model: LlmProvider::OpenAI.default_model().to_string(),
+            llm_enabled: true,
+            prompt_new_story: DEFAULT_PROMPT_NEW_STORY.to_string(),
+            prompt_continuing: DEFAULT_PROMPT_CONTINUING.to_string(),
         }
     }
 }
@@ -136,6 +182,31 @@ impl LlmState {
 
     pub fn update_model(&self, model: String) {
         self.config.update(|c| c.model = model);
+        self.persist();
+    }
+
+    pub fn toggle_llm_enabled(&self) {
+        self.config.update(|c| c.llm_enabled = !c.llm_enabled);
+        self.persist();
+    }
+
+    pub fn update_prompt_new_story(&self, prompt: String) {
+        self.config.update(|c| c.prompt_new_story = prompt);
+        self.persist();
+    }
+
+    pub fn update_prompt_continuing(&self, prompt: String) {
+        self.config.update(|c| c.prompt_continuing = prompt);
+        self.persist();
+    }
+
+    pub fn reset_prompt_new_story(&self) {
+        self.config.update(|c| c.prompt_new_story = DEFAULT_PROMPT_NEW_STORY.to_string());
+        self.persist();
+    }
+
+    pub fn reset_prompt_continuing(&self) {
+        self.config.update(|c| c.prompt_continuing = DEFAULT_PROMPT_CONTINUING.to_string());
         self.persist();
     }
 

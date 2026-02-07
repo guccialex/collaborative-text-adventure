@@ -322,6 +322,9 @@ async fn llm_proxy(
 
     HttpResponse::Ok()
         .content_type("text/event-stream")
+        .insert_header(("content-encoding", "identity"))
+        .insert_header(("cache-control", "no-cache"))
+        .insert_header(("x-accel-buffering", "no"))
         .streaming(stream)
 }
 

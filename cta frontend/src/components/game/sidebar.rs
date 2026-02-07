@@ -1,10 +1,25 @@
 use leptos::prelude::*;
+use wasm_bindgen::prelude::*;
 
 use crate::domain::adventure::AdventureNode;
 use crate::state::adventure::use_adventure_state;
 use crate::state::llm::{use_llm_state, LlmProvider};
 
 use super::helpers::scroll_to_segment;
+
+#[wasm_bindgen(inline_js = "
+export function auto_resize_prompt_textareas() {
+    requestAnimationFrame(() => {
+        document.querySelectorAll('.llm-prompt-textarea').forEach(el => {
+            el.style.height = 'auto';
+            el.style.height = (el.scrollHeight + 32) + 'px';
+        });
+    });
+}
+")]
+extern "C" {
+    fn auto_resize_prompt_textareas();
+}
 
 #[component]
 pub fn Sidebar(
@@ -59,67 +74,140 @@ pub fn Sidebar(
             </nav>
 
             <div class="llm-settings-section">
-                <button
-                    class="llm-settings-toggle"
-                    on:click=move |_| llm.toggle_settings()
-                >
-                    <span class="sidebar-title" style="margin-bottom: 0">"LLM Settings"</span>
-                    <span class="toggle-arrow">
-                        {move || if settings_open.get() { "\u{25BE}" } else { "\u{25B8}" }}
-                    </span>
-                </button>
+                <label class="llm-enable-checkbox">
+                    <input
+                        type="checkbox"
+                        prop:checked=move || llm.config().get().llm_enabled
+                        on:change=move |_| llm.toggle_llm_enabled()
+                    />
+                    <span>"LLM features"</span>
+                </label>
 
-                <Show when=move || settings_open.get()>
-                    <div class="llm-settings-body">
-                        <div class="llm-providers">
-                            {LlmProvider::all().iter().map(|provider| {
-                                let p = provider.clone();
-                                let p2 = provider.clone();
-                                let name = provider.display_name();
-                                view! {
-                                    <button
-                                        type="button"
-                                        class="llm-provider-btn"
-                                        class:active=move || llm.config().get().provider == p
-                                        on:click=move |_| llm.update_provider(p2.clone())
-                                    >
-                                        {name}
-                                    </button>
-                                }
-                            }).collect::<Vec<_>>()}
-                        </div>
+                <Show when=move || llm.config().get().llm_enabled>
+                    <button
+                        class="llm-settings-toggle"
+                        on:click=move |_| {
+                            llm.toggle_settings();
+                            auto_resize_prompt_textareas();
+                        }
+                    >
+                        <span class="sidebar-title" style="margin-bottom: 0">"LLM Settings"</span>
+                        <span class="toggle-arrow">
+                            {move || if settings_open.get() { "\u{25BE}" } else { "\u{25B8}" }}
+                        </span>
+                    </button>
 
-                        <div class="llm-field">
-                            <label>"API Base URL"</label>
-                            <input
-                                type="text"
-                                placeholder="https://api.openai.com/v1"
-                                prop:value=move || llm.config().get().api_base_url.clone()
-                                on:input=move |ev| llm.update_api_base_url(event_target_value(&ev))
-                                disabled=move || llm.config().get().provider != LlmProvider::Custom
-                            />
-                        </div>
+                    <Show when=move || settings_open.get()>
+                        <div class="llm-settings-body">
+                            <div class="llm-providers">
+                                {LlmProvider::all().iter().map(|provider| {
+                                    let p = provider.clone();
+                                    let p2 = provider.clone();
+                                    let name = provider.display_name();
+                                    view! {
+                                        <button
+                                            type="button"
+                                            class="llm-provider-btn"
+                                            class:active=move || llm.config().get().provider == p
+                                            on:click=move |_| llm.update_provider(p2.clone())
+                                        >
+                                            {name}
+                                        </button>
+                                    }
+                                }).collect::<Vec<_>>()}
+                            </div>
 
-                        <div class="llm-field">
-                            <label>"API Key"</label>
-                            <input
-                                type="password"
-                                placeholder="sk-..."
-                                prop:value=move || llm.config().get().api_key.clone()
-                                on:input=move |ev| llm.update_api_key(event_target_value(&ev))
-                            />
-                        </div>
+                            <div class="llm-field">
+                                <label>"API Base URL"</label>
+                                <input
+                                    type="text"
+                                    placeholder="https://api.openai.com/v1"
+                                    prop:value=move || llm.config().get().api_base_url.clone()
+                                    on:input=move |ev| llm.update_api_base_url(event_target_value(&ev))
+                                    disabled=move || llm.config().get().provider != LlmProvider::Custom
+                                />
+                            </div>
 
-                        <div class="llm-field">
-                            <label>"Model"</label>
-                            <input
-                                type="text"
-                                placeholder="gpt-4o-mini"
-                                prop:value=move || llm.config().get().model.clone()
-                                on:input=move |ev| llm.update_model(event_target_value(&ev))
-                            />
+                            <div class="llm-field">
+                                <label>"API Key"</label>
+                                <input
+                                    type="password"
+                                    placeholder="sk-..."
+                                    prop:value=move || llm.config().get().api_key.clone()
+                                    on:input=move |ev| llm.update_api_key(event_target_value(&ev))
+                                />
+                            </div>
+
+                            <div class="llm-field">
+                                <label>"Model"</label>
+                                <input
+                                    type="text"
+                                    placeholder="gpt-4o-mini"
+                                    prop:value=move || llm.config().get().model.clone()
+                                    on:input=move |ev| llm.update_model(event_target_value(&ev))
+                                />
+                            </div>
+
+                            <div class="llm-prompt-section">
+                                <p class="llm-prompt-hint">
+                                    "Use these variables in your prompts and they will be replaced when sent:"
+                                </p>
+                                <ul class="llm-prompt-vars">
+                                    <li><code>"{story path node history}"</code>" — the full story so far (each choice + narrative)"</li>
+                                    <li><code>"{choice text}"</code>" — the choice or premise the user entered"</li>
+                                    <li><code>"{story text}"</code>" — the story text the user has written (can be empty)"</li>
+                                </ul>
+
+                                <div class="llm-field">
+                                    <div class="llm-prompt-header">
+                                        <label>"Prompt (New Story)"</label>
+                                        <button
+                                            type="button"
+                                            class="llm-reset-btn"
+                                            on:click=move |_| {
+                                                llm.reset_prompt_new_story();
+                                                auto_resize_prompt_textareas();
+                                            }
+                                        >
+                                            "Reset"
+                                        </button>
+                                    </div>
+                                    <textarea
+                                        class="llm-prompt-textarea"
+                                        prop:value=move || llm.config().get().prompt_new_story.clone()
+                                        on:input=move |ev| {
+                                            llm.update_prompt_new_story(event_target_value(&ev));
+                                            auto_resize_prompt_textareas();
+                                        }
+                                    />
+                                </div>
+
+                                <div class="llm-field">
+                                    <div class="llm-prompt-header">
+                                        <label>"Prompt (Continuing Story)"</label>
+                                        <button
+                                            type="button"
+                                            class="llm-reset-btn"
+                                            on:click=move |_| {
+                                                llm.reset_prompt_continuing();
+                                                auto_resize_prompt_textareas();
+                                            }
+                                        >
+                                            "Reset"
+                                        </button>
+                                    </div>
+                                    <textarea
+                                        class="llm-prompt-textarea"
+                                        prop:value=move || llm.config().get().prompt_continuing.clone()
+                                        on:input=move |ev| {
+                                            llm.update_prompt_continuing(event_target_value(&ev));
+                                            auto_resize_prompt_textareas();
+                                        }
+                                    />
+                                </div>
+                            </div>
                         </div>
-                    </div>
+                    </Show>
                 </Show>
             </div>
         </aside>
