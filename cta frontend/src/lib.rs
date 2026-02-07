@@ -12,6 +12,7 @@ mod pages;
 
 // Top-Level pages
 use crate::pages::home::Home;
+use crate::components::newgrounds_user::NewgroundsUser;
 use crate::components::server_counter::ServerCounter;
 
 /// An app router which renders the homepage and handles 404's
@@ -31,6 +32,7 @@ pub fn App() -> impl IntoView {
         <Meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
         <header class="app-header">
+            <NewgroundsUser />
             <ServerCounter />
         </header>
 

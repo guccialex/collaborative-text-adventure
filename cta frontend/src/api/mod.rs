@@ -1,6 +1,7 @@
 pub mod adventure;
 pub mod counter;
 pub mod llm;
+pub mod newgrounds;
 
 use js_sys::Uint8Array;
 use shared::ServerMessage;

@@ -879,6 +879,20 @@ img {
   top: 1rem;
   right: 1rem;
   z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.ng-user {
+  display: inline-flex;
+  align-items: center;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 
 .server-counter {
