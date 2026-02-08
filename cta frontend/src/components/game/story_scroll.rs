@@ -1,4 +1,5 @@
 use leptos::prelude::*;
+use wasm_bindgen::prelude::*;
 
 use crate::api::newgrounds::get_session_id;
 use crate::domain::adventure::AdventureNode;
@@ -6,6 +7,32 @@ use crate::state::adventure::use_adventure_state;
 
 use super::contribute_form::ContributeForm;
 use super::ContributeMode;
+
+#[wasm_bindgen(inline_js = "
+export function toggle_fullscreen() {
+    if (document.fullscreenElement) {
+        document.exitFullscreen();
+    } else {
+        document.documentElement.requestFullscreen();
+    }
+}
+
+export function is_fullscreen() {
+    return !!document.fullscreenElement;
+}
+
+let _fs_callback = null;
+export function on_fullscreen_change(cb) {
+    if (_fs_callback) document.removeEventListener('fullscreenchange', _fs_callback);
+    _fs_callback = () => cb(!!document.fullscreenElement);
+    document.addEventListener('fullscreenchange', _fs_callback);
+}
+")]
+extern "C" {
+    fn toggle_fullscreen();
+    fn is_fullscreen() -> bool;
+    fn on_fullscreen_change(cb: &Closure<dyn Fn(bool)>);
+}
 
 #[component]
 pub fn StoryScroll(
@@ -22,15 +49,16 @@ pub fn StoryScroll(
         .expect("NG username signal must be provided by App");
 
     let at_root = Memo::new(move |_| path.get().is_empty());
+    let (fullscreen, set_fullscreen) = signal(false);
+
+    let fs_closure = Closure::new(move |is_fs: bool| {
+        set_fullscreen.set(is_fs);
+    });
+    on_fullscreen_change(&fs_closure);
+    fs_closure.forget();
 
     view! {
         <div class="story-scroll">
-            <Show when=move || at_root.get()>
-                <div class="intro-text">
-                    <p>"This is a branching text adventure. Choose an opening below to begin reading, or start your own story."</p>
-                </div>
-            </Show>
-
             <Show when=move || !at_root.get()>
                 <button
                     class="back-to-root-btn"
@@ -38,6 +66,23 @@ pub fn StoryScroll(
                 >
                     "Back to root"
                 </button>
+            </Show>
+
+            <button
+                class="fullscreen-btn"
+                title=move || if fullscreen.get() { "Exit fullscreen" } else { "Enter fullscreen" }
+                on:click=move |_| {
+                    toggle_fullscreen();
+                    set_fullscreen.set(is_fullscreen());
+                }
+            >
+                {move || if fullscreen.get() { "\u{2715}" } else { "\u{26F6}" }}
+            </button>
+
+            <Show when=move || at_root.get()>
+                <div class="intro-text">
+                    <p>"Choose an opening below, or create a new one."</p>
+                </div>
             </Show>
 
             <For
@@ -51,15 +96,21 @@ pub fn StoryScroll(
                     let unit_created_by = unit.created_by.clone();
 
                     let can_delete = move || {
+                        let current_user = ng_username.get();
+                        let no_children = graph.get().children_ids(&unit_id).is_empty();
+
+                        if current_user.as_deref() == Some("comicstosteal") {
+                            return no_children;
+                        }
+
                         if !is_last() {
                             return false;
                         }
-                        let current_user = ng_username.get();
                         match (&current_user, &unit_created_by) {
                             (Some(user), Some(creator)) if user == creator => {}
                             _ => return false,
                         }
-                        graph.get().children_ids(&unit_id).is_empty()
+                        no_children
                     };
 
                     let delete_node_id = unit.id.clone();

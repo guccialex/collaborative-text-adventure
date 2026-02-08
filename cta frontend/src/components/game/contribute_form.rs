@@ -71,6 +71,8 @@ pub fn ContributeForm(
 ) -> impl IntoView {
     let state = use_adventure_state();
     let llm = use_llm_state();
+    let ng_username = use_context::<RwSignal<Option<String>>>()
+        .expect("NG username signal must be provided by App");
     let (choice_text, set_choice_text) = signal(String::new());
     let (story_text, set_story_text) = signal(String::new());
     let (submitting, set_submitting) = signal(false);
@@ -254,8 +256,16 @@ pub fn ContributeForm(
                 </div>
 
                 <div class="form-actions">
-                    <button type="submit" class="submit-btn" disabled=move || submitting.get()>
-                        {move || if submitting.get() { "Submitting..." } else { "Add to Story" }}
+                    <button type="submit" class="submit-btn" disabled=move || submitting.get() || ng_username.get().is_none()>
+                        {move || {
+                            if ng_username.get().is_none() {
+                                "You must be signed into Newgrounds to upload"
+                            } else if submitting.get() {
+                                "Submitting..."
+                            } else {
+                                "Upload and Add to Story"
+                            }
+                        }}
                     </button>
                     <Show when=move || show_cancel>
                         <button

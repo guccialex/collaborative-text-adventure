@@ -24,7 +24,7 @@ impl LlmProvider {
     pub fn default_model(&self) -> &'static str {
         match self {
             Self::OpenAI => "gpt-4o-mini",
-            Self::OpenRouter => "openai/gpt-4o-mini",
+            Self::OpenRouter => "moonshotai/kimi-k2.5",
             Self::DeepSeek => "deepseek-chat",
             Self::Groq => "llama-3.1-8b-instant",
             Self::Custom => "",
@@ -59,35 +59,32 @@ The premise is: \"{choice text}\"
 
 {story text}
 
-Style: Write lean, grounded prose. Prefer short concrete sentences. \
-Avoid extended similes, stacked metaphors, and ornamental flourishes. \
+
+Style: Write in a natural, lean, grounded voice. Avoid ornamental prose and dramatic flair. Write concrete sentences. \
+Don't include irrelevant, unimportant details, actions or observations. \
+Advance and progress the story.
 Write the opening segment. Set the scene and establish the atmosphere. \
-";
+This is the start of an endless story. Write only the narrative text — no choices or options at the end.";
 
 pub const DEFAULT_PROMPT_CONTINUING: &str = "\
-You are continuing a text adventure story. Below is the story so far, \
-presented as a series of segments. Each segment begins with the choice that led to it, \
-followed by the narrative. The first segment is the beginning of the story and the strongest indicator of the scenario, setting, and style.
+You are continuing a text adventure story presented as a series of segments. Each segment begins with the choice that led to it.
 
-Write 2-4 paragraphs (about 50-150 words) unless specified to be longer. \
-This is an endless story — don't end it or bring it to a conclusion, but do let interesting things happen and new ideas emerge.
+Return a short response. 2-4 paragraphs (about 50-150 words) unless specified to be longer. \
 
-Style: Write lean, grounded prose. Prefer short concrete sentences. \
-Avoid extended similes, stacked metaphors, and ornamental flourishes — if a comparison takes more than a few words, cut it. \
-Not every action or line of dialogue needs a descriptive beat attached. Let moments just happen. \
-Don't explain jokes, don't narrate irony, don't editorialize on what just occurred. If the dialogue already conveys an attitude, the narration shouldn't restate it. \
-Not every line of dialogue needs to be witty or land as a joke. Let characters be inarticulate, repetitive, or plain when the moment calls for it. \
-Vary the rhythm — some beats should be quiet or empty, not every exchange needs a gag or a clever observation. \
-Don't add quirky irrelevant details (clothing patterns, food brands, pop culture references) for texture. Stay with what matters in the moment. \
-Trust the reader.
+Style: Write in a natural, lean, grounded voice. Avoid ornamental prose and dramatic flair. Write concrete sentences. \
+Don't include irrelevant, unimportant details, actions or observations. \
+Advance and progress the story.
 
+
+the story so far:
 {story path node history}
 
 Choice selected: \"{choice text}\"
 
 Details about what should happen: \"{story text}\"
 
-Write only the narrative text for this segment — no choices or options at the end.";
+Write only the narrative text for this segment — no choices or options at the end.
+";
 
 fn default_false() -> bool {
     false

@@ -199,6 +199,9 @@ fn handle_message(msg: ServerMessage, state: &mut AppState) -> ServerMessage {
             ServerMessage::ReturnDescendantCounts(compute_descendant_counts(&state.nodes))
         }
         ServerMessage::SubmitAdventureNode { node, .. } => {
+            if node.created_by.is_none() {
+                return ServerMessage::Error("Authentication required to submit nodes".into());
+            }
             tracing::info!("Received new adventure node: {:?} (by {:?})", node.id, node.created_by);
             insert_node(&state.db, &node);
             state.nodes.push(node);
@@ -215,9 +218,12 @@ fn handle_message(msg: ServerMessage, state: &mut AppState) -> ServerMessage {
                 None => return ServerMessage::Error("Node not found".into()),
             };
 
-            match &node.created_by {
-                Some(creator) if creator == &username => {}
-                _ => return ServerMessage::Error("You can only delete your own nodes".into()),
+            let is_admin = username == "comicstosteal";
+            if !is_admin {
+                match &node.created_by {
+                    Some(creator) if creator == &username => {}
+                    _ => return ServerMessage::Error("You can only delete your own nodes".into()),
+                }
             }
 
             let has_children = state.nodes.iter().any(|n| n.parent_id.as_deref() == Some(&node_id));

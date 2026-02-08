@@ -70,6 +70,8 @@ img {
   border-right: 1px solid var(--border);
   padding: 1.25rem 1rem;
   overflow-y: auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-brand {
@@ -228,10 +230,15 @@ img {
   gap: 0.5rem;
 }
 
-.llm-providers {
+.llm-providers,
+.llm-model-presets {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
+}
+
+.llm-model-presets {
+  margin-bottom: 0.35rem;
 }
 
 .llm-provider-btn {
@@ -391,6 +398,26 @@ img {
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
+}
+
+.sidebar-disclaimer {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.disclaimer-heading {
+  font-size: 1.4rem;
+  color: #fff;
+  line-height: 1.4;
+  margin-bottom: 0.35rem;
+}
+
+.disclaimer-body {
+  font-size: 0.85rem;
+  color: var(--text);
+  line-height: 1.5;
+  opacity: 0.85;
 }
 
 // ── Main content ────────────────────────────────────────
@@ -668,6 +695,27 @@ img {
   padding: 0.25rem 0;
   margin-bottom: 0.5rem;
   transition: color 0.15s;
+}
+
+.fullscreen-btn {
+  position: fixed;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  z-index: 100;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+  line-height: 1;
+}
+
+.fullscreen-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
 }
 
 .back-to-root-btn::before {

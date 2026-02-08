@@ -10,10 +10,17 @@ use super::helpers::scroll_to_segment;
 #[wasm_bindgen(inline_js = "
 export function auto_resize_prompt_textareas() {
     requestAnimationFrame(() => {
+        const scrollY = window.scrollY;
+        const sidebar = document.querySelector('.sidebar');
+        const sidebarScroll = sidebar ? sidebar.scrollTop : 0;
+
         document.querySelectorAll('.llm-prompt-textarea').forEach(el => {
             el.style.height = 'auto';
             el.style.height = (el.scrollHeight + 32) + 'px';
         });
+
+        if (sidebar) sidebar.scrollTop = sidebarScroll;
+        window.scrollTo(0, scrollY);
     });
 }
 ")]
@@ -140,12 +147,60 @@ pub fn Sidebar(
 
                             <div class="llm-field">
                                 <label>"Model"</label>
-                                <input
-                                    type="text"
-                                    placeholder="gpt-4o-mini"
-                                    prop:value=move || llm.config().get().model.clone()
-                                    on:input=move |ev| llm.update_model(event_target_value(&ev))
-                                />
+                                {move || {
+                                    let config = llm.config().get();
+                                    if config.provider == LlmProvider::OpenRouter {
+                                        let presets = [
+                                            "moonshotai/kimi-k2.5",
+                                            "anthropic/claude-sonnet-4.5",
+                                            "arcee-ai/trinity-large-preview:free",
+                                            "stepfun/step-3.5-flash:free",
+                                        ];
+                                        view! {
+                                            <div class="llm-model-presets">
+                                                {presets.iter().map(|&m| {
+                                                    let model = m.to_string();
+                                                    let model2 = m.to_string();
+                                                    view! {
+                                                        <button
+                                                            type="button"
+                                                            class="llm-provider-btn"
+                                                            class:active=move || llm.config().get().model == model
+                                                            on:click=move |_| llm.update_model(model2.clone())
+                                                        >
+                                                            {m.split('/').last().unwrap_or(m)}
+                                                        </button>
+                                                    }
+                                                }).collect::<Vec<_>>()}
+                                                <button
+                                                    type="button"
+                                                    class="llm-provider-btn"
+                                                    class:active=move || !presets.contains(&llm.config().get().model.as_str())
+                                                    on:click=move |_| llm.update_model(String::new())
+                                                >
+                                                    "Other"
+                                                </button>
+                                            </div>
+                                            <Show when=move || !presets.contains(&llm.config().get().model.as_str())>
+                                                <input
+                                                    type="text"
+                                                    placeholder="e.g. openai/gpt-4o-mini"
+                                                    prop:value=move || llm.config().get().model.clone()
+                                                    on:input=move |ev| llm.update_model(event_target_value(&ev))
+                                                />
+                                            </Show>
+                                        }.into_any()
+                                    } else {
+                                        view! {
+                                            <input
+                                                type="text"
+                                                placeholder="gpt-4o-mini"
+                                                prop:value=move || llm.config().get().model.clone()
+                                                on:input=move |ev| llm.update_model(event_target_value(&ev))
+                                            />
+                                        }.into_any()
+                                    }
+                                }}
                             </div>
 
                             <div class="llm-prompt-section">
@@ -169,7 +224,7 @@ pub fn Sidebar(
                                                 auto_resize_prompt_textareas();
                                             }
                                         >
-                                            "Reset"
+                                            "Reset Prompt"
                                         </button>
                                     </div>
                                     <textarea
@@ -193,7 +248,7 @@ pub fn Sidebar(
                                                 auto_resize_prompt_textareas();
                                             }
                                         >
-                                            "Reset"
+                                            "Reset Prompt"
                                         </button>
                                     </div>
                                     <textarea
@@ -209,6 +264,17 @@ pub fn Sidebar(
                         </div>
                     </Show>
                 </Show>
+            </div>
+
+            <div class="sidebar-disclaimer">
+                <p class="disclaimer-heading">"THIS GAME INTERACTS WITH A THIRD PARTY SERVER"</p>
+                <p class="disclaimer-body">
+                    "owned by me, hosted on Google Cloud. "
+                    "All submitted text is saved there, mapped to the newgrounds id of the user who submitted it. "
+                    "No data will be sent to the third party server if you don't submit anything "
+                    "(or press the button in the top right). "
+                    "Data is fetched from the third party server when getting the stories."
+                </p>
             </div>
         </aside>
     }
