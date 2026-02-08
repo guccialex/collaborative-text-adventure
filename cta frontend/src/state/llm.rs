@@ -61,10 +61,8 @@ The premise is: \"{choice text}\"
 
 Style: Write lean, grounded prose. Prefer short concrete sentences. \
 Avoid extended similes, stacked metaphors, and ornamental flourishes. \
-Let moments happen without narrating why they're funny or significant. \
-Trust the dialogue and situation to carry tone. If a detail doesn't add new information, drop it.
-
-Set the scene and establish the atmosphere.";
+Write the opening segment. Set the scene and establish the atmosphere. \
+";
 
 pub const DEFAULT_PROMPT_CONTINUING: &str = "\
 You are continuing a text adventure story. Below is the story so far, \
@@ -76,8 +74,12 @@ This is an endless story — don't end it or bring it to a conclusion, but do le
 
 Style: Write lean, grounded prose. Prefer short concrete sentences. \
 Avoid extended similes, stacked metaphors, and ornamental flourishes — if a comparison takes more than a few words, cut it. \
-Not every action or line of dialogue needs a descriptive beat attached. Let moments happen without narrating why they're funny or significant. \
-Trust the dialogue and situation to carry tone. If a detail doesn't add new information, drop it.
+Not every action or line of dialogue needs a descriptive beat attached. Let moments just happen. \
+Don't explain jokes, don't narrate irony, don't editorialize on what just occurred. If the dialogue already conveys an attitude, the narration shouldn't restate it. \
+Not every line of dialogue needs to be witty or land as a joke. Let characters be inarticulate, repetitive, or plain when the moment calls for it. \
+Vary the rhythm — some beats should be quiet or empty, not every exchange needs a gag or a clever observation. \
+Don't add quirky irrelevant details (clothing patterns, food brands, pop culture references) for texture. Stay with what matters in the moment. \
+Trust the reader.
 
 {story path node history}
 
