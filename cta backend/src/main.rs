@@ -204,6 +204,37 @@ fn handle_message(msg: ServerMessage, state: &mut AppState) -> ServerMessage {
             state.nodes.push(node);
             ServerMessage::Ok
         }
+        ServerMessage::DeleteAdventureNode { node_id, session_id: verified_username } => {
+            let username = match verified_username {
+                Some(u) => u,
+                None => return ServerMessage::Error("Authentication required to delete nodes".into()),
+            };
+
+            let node = match state.nodes.iter().find(|n| n.id == node_id) {
+                Some(n) => n,
+                None => return ServerMessage::Error("Node not found".into()),
+            };
+
+            match &node.created_by {
+                Some(creator) if creator == &username => {}
+                _ => return ServerMessage::Error("You can only delete your own nodes".into()),
+            }
+
+            let has_children = state.nodes.iter().any(|n| n.parent_id.as_deref() == Some(&node_id));
+            if has_children {
+                return ServerMessage::Error("Cannot delete a node that has children".into());
+            }
+
+            tracing::info!("Deleting adventure node: {:?} (by {:?})", node_id, username);
+
+            if let Err(e) = state.db.execute("DELETE FROM nodes WHERE id = ?1", rusqlite::params![node_id]) {
+                tracing::error!("Failed to delete node {} from DB: {}", node_id, e);
+                return ServerMessage::Error("Database error".into());
+            }
+
+            state.nodes.retain(|n| n.id != node_id);
+            ServerMessage::Ok
+        }
         other => {
             tracing::warn!("Unhandled message type: {:?}", std::mem::discriminant(&other));
             ServerMessage::Error("Unhandled message type".into())
@@ -243,6 +274,20 @@ async fn api_bincode(
                 }
             }
             ServerMessage::SubmitAdventureNode { node, session_id: None }
+        }
+        ServerMessage::DeleteAdventureNode { node_id, session_id } => {
+            let verified_username = if let Some(sid) = session_id {
+                match verify_ng_session(&client, &sid).await {
+                    Ok(username) => username,
+                    Err(e) => {
+                        tracing::warn!("NG session verification failed for delete: {}", e);
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+            ServerMessage::DeleteAdventureNode { node_id, session_id: verified_username }
         }
         other => other,
     };

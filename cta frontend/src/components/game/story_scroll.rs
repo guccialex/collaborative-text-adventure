@@ -1,5 +1,6 @@
 use leptos::prelude::*;
 
+use crate::api::newgrounds::get_session_id;
 use crate::domain::adventure::AdventureNode;
 use crate::state::adventure::use_adventure_state;
 
@@ -16,6 +17,9 @@ pub fn StoryScroll(
     let path = state.path();
     let show_contribute = state.show_contribute();
     let counts = state.descendant_counts();
+    let graph = state.graph();
+    let ng_username = use_context::<RwSignal<Option<String>>>()
+        .expect("NG username signal must be provided by App");
 
     let at_root = Memo::new(move |_| path.get().is_empty());
 
@@ -43,6 +47,23 @@ pub fn StoryScroll(
                     let is_last = move || i == path.get().len().saturating_sub(1);
                     let segment_id = format!("segment-{}", unit.id);
 
+                    let unit_id = unit.id.clone();
+                    let unit_created_by = unit.created_by.clone();
+
+                    let can_delete = move || {
+                        if !is_last() {
+                            return false;
+                        }
+                        let current_user = ng_username.get();
+                        match (&current_user, &unit_created_by) {
+                            (Some(user), Some(creator)) if user == creator => {}
+                            _ => return false,
+                        }
+                        graph.get().children_ids(&unit_id).is_empty()
+                    };
+
+                    let delete_node_id = unit.id.clone();
+
                     view! {
                         <article
                             class="story-segment"
@@ -59,6 +80,22 @@ pub fn StoryScroll(
                                     >
                                         "Return here"
                                     </button>
+                                </Show>
+                                <Show when=can_delete>
+                                    {
+                                        let delete_id = delete_node_id.clone();
+                                        view! {
+                                            <button
+                                                class="delete-btn-inline"
+                                                title="Delete this node"
+                                                on:click=move |_| {
+                                                    state.delete_node(delete_id.clone(), get_session_id())
+                                                }
+                                            >
+                                                "Delete"
+                                            </button>
+                                        }
+                                    }
                                 </Show>
                             </div>
                             <p class="story-text">{unit.story_text.clone()}</p>

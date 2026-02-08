@@ -53,34 +53,42 @@ impl LlmProvider {
 }
 
 pub const DEFAULT_PROMPT_NEW_STORY: &str = "\
-You are writing the opening segment of a collaborative text adventure story.
+You are writing the opening segment of a text adventure story.
 
 The premise is: \"{choice text}\"
 
 {story text}
 
-Write the opening segment (a few paragraphs). Set the scene, establish the atmosphere, and draw the reader in. Write only the narrative text \
-— do not include choices or options at the end.";
+Style: Write lean, grounded prose. Prefer short concrete sentences. \
+Avoid extended similes, stacked metaphors, and ornamental flourishes. \
+Let moments happen without narrating why they're funny or significant. \
+Trust the dialogue and situation to carry tone. If a detail doesn't add new information, drop it.
+
+Set the scene and establish the atmosphere.";
 
 pub const DEFAULT_PROMPT_CONTINUING: &str = "\
 You are continuing a text adventure story. Below is the story so far, \
 presented as a series of segments. Each segment begins with the choice that led to it, \
-followed by the narrative. The first segment is the begining of the story, the strongest indicator of the scenario, the setting, the style. \
-The story text you give for this choice should only be 2-4 paragraphs long, short (about 50-150 words long), unless specified to be longer. \
-You can have interesting things happen, that can evolve the story, introduce new ideas, but this is an endless story so it shouldn't end it or bring the story to its conclusion.
+followed by the narrative. The first segment is the beginning of the story and the strongest indicator of the scenario, setting, and style.
+
+Write 2-4 paragraphs (about 50-150 words) unless specified to be longer. \
+This is an endless story — don't end it or bring it to a conclusion, but do let interesting things happen and new ideas emerge.
+
+Style: Write lean, grounded prose. Prefer short concrete sentences. \
+Avoid extended similes, stacked metaphors, and ornamental flourishes — if a comparison takes more than a few words, cut it. \
+Not every action or line of dialogue needs a descriptive beat attached. Let moments happen without narrating why they're funny or significant. \
+Trust the dialogue and situation to carry tone. If a detail doesn't add new information, drop it.
 
 {story path node history}
 
-This is the choice/path selected: \"{choice text}\"
+Choice selected: \"{choice text}\"
 
-This is the content the user has written so far, some details about what the response you return should be: \"{story text}\"
+Details about what should happen: \"{story text}\"
 
-Write the next segment of the story (a few paragraphs). Match the tone, style, \
-and atmosphere established so far. Make it vivid and engaging. Write only the \
-narrative text for this segment — do not include choices or options at the end.";
+Write only the narrative text for this segment — no choices or options at the end.";
 
-fn default_true() -> bool {
-    true
+fn default_false() -> bool {
+    false
 }
 fn default_prompt_new_story() -> String {
     DEFAULT_PROMPT_NEW_STORY.to_string()
@@ -95,7 +103,7 @@ pub struct LlmConfig {
     pub api_base_url: String,
     pub api_key: String,
     pub model: String,
-    #[serde(default = "default_true")]
+    #[serde(default = "default_false")]
     pub llm_enabled: bool,
     #[serde(default = "default_prompt_new_story")]
     pub prompt_new_story: String,
@@ -110,7 +118,7 @@ impl Default for LlmConfig {
             api_base_url: LlmProvider::OpenAI.base_url().to_string(),
             api_key: String::new(),
             model: LlmProvider::OpenAI.default_model().to_string(),
-            llm_enabled: true,
+            llm_enabled: false,
             prompt_new_story: DEFAULT_PROMPT_NEW_STORY.to_string(),
             prompt_continuing: DEFAULT_PROMPT_CONTINUING.to_string(),
         }

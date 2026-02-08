@@ -530,6 +530,27 @@ img {
   background: var(--surface-2);
 }
 
+.delete-btn-inline {
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 3px;
+  white-space: nowrap;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.story-segment:hover .delete-btn-inline {
+  opacity: 1;
+}
+
+.delete-btn-inline:hover {
+  color: #e06060;
+  border-color: #e06060;
+  background: rgba(220, 50, 50, 0.1);
+}
+
 .story-text {
   font-size: 0.9rem;
   line-height: 1.7;

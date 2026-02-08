@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use leptos::prelude::*;
 use leptos::task::spawn_local;
 
-use crate::api::adventure::{fetch_adventure, fetch_descendant_counts, submit_node};
+use crate::api::adventure::{delete_node, fetch_adventure, fetch_descendant_counts, submit_node};
 use crate::domain::adventure::{AdventureGraph, AdventureNode};
 
 #[derive(Clone)]
@@ -128,6 +128,45 @@ impl AdventureState {
                 }
                 Err(error) => {
                     log::error!("Failed to submit node: {}", error);
+                    load_state.set(LoadState::Error(error));
+                }
+            }
+        });
+    }
+
+    pub fn delete_node(&self, node_id: String, session_id: Option<String>) {
+        let graph = self.graph;
+        let counts = self.descendant_counts;
+        let load_state = self.load_state;
+        let path = self.path;
+        let show_contribute = self.show_contribute;
+
+        spawn_local(async move {
+            match delete_node(node_id.clone(), session_id).await {
+                Ok(()) => {
+                    // Pop the node from path if it was the last entry
+                    path.update(|p| {
+                        if p.last().map(|s| s.as_str()) == Some(&node_id) {
+                            p.pop();
+                        }
+                    });
+                    show_contribute.set(false);
+                    // Reload the graph
+                    match fetch_adventure().await {
+                        Ok(data) => {
+                            graph.set(data);
+                            if let Ok(c) = fetch_descendant_counts().await {
+                                counts.set(c);
+                            }
+                            load_state.set(LoadState::Ready);
+                        }
+                        Err(error) => {
+                            load_state.set(LoadState::Error(error));
+                        }
+                    }
+                }
+                Err(error) => {
+                    log::error!("Failed to delete node: {}", error);
                     load_state.set(LoadState::Error(error));
                 }
             }

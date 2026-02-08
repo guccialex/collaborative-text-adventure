@@ -25,6 +25,11 @@ pub enum ServerMessage {
         session_id: Option<String>,
     },
 
+    DeleteAdventureNode {
+        node_id: String,
+        session_id: Option<String>,
+    },
+
     Ok,
     Error(String),
 }

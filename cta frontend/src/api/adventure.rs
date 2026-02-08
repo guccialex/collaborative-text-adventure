@@ -26,3 +26,11 @@ pub async fn submit_node(node: AdventureNode, session_id: Option<String>) -> Res
         other => Err(format!("Unexpected response: {:?}", other)),
     }
 }
+
+pub async fn delete_node(node_id: String, session_id: Option<String>) -> Result<(), String> {
+    match super::api_fetch(ServerMessage::DeleteAdventureNode { node_id, session_id }).await? {
+        ServerMessage::Ok => Ok(()),
+        ServerMessage::Error(e) => Err(e),
+        other => Err(format!("Unexpected response: {:?}", other)),
+    }
+}
